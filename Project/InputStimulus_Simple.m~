@@ -1,0 +1,56 @@
+classdef InputStimulus_Simple < StimuliInterface
+    % This class calculates a the application of a stimulus across trials
+    % for a particular stimulus and a set of neurons. It's a simple
+    % stimulus in that it's a numbered current with a weighted application
+    % to each neuron. 
+    
+    % INPUT PARAMS
+    properties 
+        % Strength Levels
+        
+        % Control of trials
+        nTrials;
+        
+        % Times that stimulus remains on
+        trialDuration;
+        trialStart;
+        trialStop;
+        
+        % Hetergeneity
+        iFrac; % Percentage of neurons receiving stimulus
+        
+    end
+    
+    % METHODS TO GEN STIMULI
+    methods
+        function this = generateStimuli(this,dt)
+            
+            % Create an alias for this object
+            t=this;
+            
+            % Establish a random stream
+            r = RandStream.create('mrg32k3a',...
+                'NumStreams',1,'Seed','shuffle');
+            
+            % Determine the fraction of stimuli that will receive input
+            whoStimulate = rand(r,size(t.neurIdentities));
+            
+            % Bin up time
+            times = 0:dt:t.trialDuration*t.nTrials;
+            
+            % Need to calculate start and stops for stimulus
+            mod(times,t.trialDuration)>=t.trialStart & ...
+                mod(times,t.trialDuration)<=t.trialStop;
+            
+            
+        end
+    end
+    
+    % OUTPUT PROPERTY
+    properties
+        Iapp;       % Complete record of stimulus for all t
+        trialBin;   % Record of start and stop bin per trial
+    end
+
+    
+end

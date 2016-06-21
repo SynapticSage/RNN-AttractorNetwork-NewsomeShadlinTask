@@ -1,0 +1,838 @@
+
+<!DOCTYPE html
+  PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html><head>
+      <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+   <!--
+This HTML was auto-generated from MATLAB code.
+To make changes, update the MATLAB code and republish this document.
+      --><title>longstim_rantau_spatial12</title><meta name="generator" content="MATLAB 9.1"><link rel="schema.DC" href="http://purl.org/dc/elements/1.1/"><meta name="DC.date" content="2016-06-16"><meta name="DC.source" content="longstim_rantau_spatial12.m"><style type="text/css">
+html,body,div,span,applet,object,iframe,h1,h2,h3,h4,h5,h6,p,blockquote,pre,a,abbr,acronym,address,big,cite,code,del,dfn,em,font,img,ins,kbd,q,s,samp,small,strike,strong,sub,sup,tt,var,b,u,i,center,dl,dt,dd,ol,ul,li,fieldset,form,label,legend,table,caption,tbody,tfoot,thead,tr,th,td{margin:0;padding:0;border:0;outline:0;font-size:100%;vertical-align:baseline;background:transparent}body{line-height:1}ol,ul{list-style:none}blockquote,q{quotes:none}blockquote:before,blockquote:after,q:before,q:after{content:'';content:none}:focus{outine:0}ins{text-decoration:none}del{text-decoration:line-through}table{border-collapse:collapse;border-spacing:0}
+
+html { min-height:100%; margin-bottom:1px; }
+html body { height:100%; margin:0px; font-family:Arial, Helvetica, sans-serif; font-size:10px; color:#000; line-height:140%; background:#fff none; overflow-y:scroll; }
+html body td { vertical-align:top; text-align:left; }
+
+h1 { padding:0px; margin:0px 0px 25px; font-family:Arial, Helvetica, sans-serif; font-size:1.5em; color:#d55000; line-height:100%; font-weight:normal; }
+h2 { padding:0px; margin:0px 0px 8px; font-family:Arial, Helvetica, sans-serif; font-size:1.2em; color:#000; font-weight:bold; line-height:140%; border-bottom:1px solid #d6d4d4; display:block; }
+h3 { padding:0px; margin:0px 0px 5px; font-family:Arial, Helvetica, sans-serif; font-size:1.1em; color:#000; font-weight:bold; line-height:140%; }
+
+a { color:#005fce; text-decoration:none; }
+a:hover { color:#005fce; text-decoration:underline; }
+a:visited { color:#004aa0; text-decoration:none; }
+
+p { padding:0px; margin:0px 0px 20px; }
+img { padding:0px; margin:0px 0px 20px; border:none; }
+p img, pre img, tt img, li img, h1 img, h2 img { margin-bottom:0px; } 
+
+ul { padding:0px; margin:0px 0px 20px 23px; list-style:square; }
+ul li { padding:0px; margin:0px 0px 7px 0px; }
+ul li ul { padding:5px 0px 0px; margin:0px 0px 7px 23px; }
+ul li ol li { list-style:decimal; }
+ol { padding:0px; margin:0px 0px 20px 0px; list-style:decimal; }
+ol li { padding:0px; margin:0px 0px 7px 23px; list-style-type:decimal; }
+ol li ol { padding:5px 0px 0px; margin:0px 0px 7px 0px; }
+ol li ol li { list-style-type:lower-alpha; }
+ol li ul { padding-top:7px; }
+ol li ul li { list-style:square; }
+
+.content { font-size:1.2em; line-height:140%; padding: 20px; }
+
+pre, code { font-size:12px; }
+tt { font-size: 1.2em; }
+pre { margin:0px 0px 20px; }
+pre.codeinput { padding:10px; border:1px solid #d3d3d3; background:#f7f7f7; }
+pre.codeoutput { padding:10px 11px; margin:0px 0px 20px; color:#4c4c4c; }
+pre.error { color:red; }
+
+@media print { pre.codeinput, pre.codeoutput { word-wrap:break-word; width:100%; } }
+
+span.keyword { color:#0000FF }
+span.comment { color:#228B22 }
+span.string { color:#A020F0 }
+span.untermstring { color:#B20000 }
+span.syscmd { color:#B28C00 }
+
+.footer { width:auto; padding:10px 0px; margin:25px 0px 0px; border-top:1px dotted #878787; font-size:0.8em; line-height:140%; font-style:italic; color:#878787; text-align:left; float:none; }
+.footer p { margin:0px; }
+.footer a { color:#878787; }
+.footer a:hover { color:#878787; text-decoration:underline; }
+.footer a:visited { color:#878787; }
+
+table th { padding:7px 5px; text-align:left; vertical-align:middle; border: 1px solid #d6d4d4; font-weight:bold; }
+table td { padding:7px 5px; text-align:left; vertical-align:top; border:1px solid #d6d4d4; }
+
+
+
+
+
+  </style></head><body><div class="content"><h2>Contents</h2><div><ul><li><a href="#2">Flags</a></li><li><a href="#3">Randomness</a></li><li><a href="#4">Parameter Initialization</a></li><li><a href="#5">Space cells on a lattice of size N1 x N2</a></li><li><a href="#6">Create Probabilist Description of Connection</a></li><li><a href="#7">Cell-specific Params</a></li><li><a href="#8">Stimulation Parameters</a></li><li><a href="#9">Calculate Connections</a></li><li><a href="#10">Calculate Input Parameters</a></li><li><a href="#11">Intitialize Trackers and Set Max Trials</a></li><li><a href="#12">Trial Simulations</a></li><li><a href="#14">Per Stimulation</a></li><li><a href="#16">Step Through Times</a></li><li><a href="#18">Post-trial plotting</a></li><li><a href="#20">Correlation Analysis/Figures</a></li><li><a href="#21">Excitatory Analysis/Figures</a></li></ul></div><pre class="codeinput"><span class="comment">% many_tuned_count_mems_50f5.m</span>
+<span class="comment">% Rate-model code for a network with many stable states.</span>
+
+<span class="comment">% Ryan - notes ... I think this code may</span>
+
+clear <span class="string">all</span>; clf; close <span class="string">all</span>;
+</pre><h2 id="2">Flags</h2><pre class="codeinput">figureson = true;              <span class="comment">% set to 1 to plot a lot more figures</span>
+test_on = 0;
+
+weight_normalization = true;
+</pre><h2 id="3">Randomness</h2><p>2 random streams, with s2 used for cell and network structure while the other, s1, is used for temporal noise</p><pre class="codeinput">[s1] = RandStream.create(<span class="string">'mrg32k3a'</span>,<span class="string">'NumStreams'</span>,1,<span class="string">'seed'</span>,sum(100*clock))
+[ s2 ] = RandStream.create(<span class="string">'mrg32k3a'</span>,<span class="string">'NumStreams'</span>,1,<span class="string">'seed'</span>,2)
+
+rand(s1,2,2)
+rand(s2,2,2)
+rand(2,2)
+</pre><pre class="codeoutput">
+s1 = 
+
+
+mrg32k3a random stream
+             Seed: 211199
+  NormalTransform: Ziggurat
+
+s2 = 
+
+
+mrg32k3a random stream
+             Seed: 2
+  NormalTransform: Ziggurat
+
+ans =
+
+    0.0114    0.6574
+    0.5998    0.8723
+
+
+ans =
+
+    0.2644    0.4759
+    0.9964    0.1286
+
+
+ans =
+
+    0.2709    0.8908
+    0.4916    0.4828
+
+</pre><h2 id="4">Parameter Initialization</h2><pre class="codeinput">dt = 0.0002;                    <span class="comment">% Time step (sec)</span>
+bint = 0.050;                   <span class="comment">% Bin width for averaging and plotting rates</span>
+nbin = round(bint/dt)           <span class="comment">% Number of time steps per bin</span>
+
+tmax = 22.0;                    <span class="comment">% Maximum time per stimulus (sec)</span>
+Nsec1= round(0.5*tmax/dt);      <span class="comment">% Number of time steps in half of tmax</span>
+
+multistim = 0;                  <span class="comment">% set to 1 if different stimulus types are varied</span>
+
+Nstims = 1;                     <span class="comment">% Default value used for single stimulus type</span>
+trial_reset = 1;                <span class="comment">% Set to zero to prevent "counting" across trials</span>
+dtime = true;                      <span class="comment">% Set to one if stimulus duration varies</span>
+stimtimevec = [0.5];            <span class="comment">% Used if stimulus duration varies</span>
+Ntimes = length(stimtimevec);   <span class="comment">% Number of different durations</span>
+I0 = 2;
+fracI = 0.1;
+Icell_Input = 0.1;
+Iappvec = [ 1 2 ];              <span class="comment">% Used if applied input amplitude varies</span>
+NI = length(Iappvec);           <span class="comment">% Number of different amplitudes of input</span>
+
+Nmax = 4;                       <span class="comment">% Number of stimuli to count up to</span>
+
+<span class="keyword">if</span> ( dtime == 1 )               <span class="comment">% If stimulus duration changes</span>
+    Nstims = length(stimtimevec);
+<span class="keyword">end</span>
+
+<span class="keyword">if</span> (multistim)                  <span class="comment">% If multiple variations of stimulus tuype</span>
+    Nstims = length(stimtimevec)*length(Iappvec)*(Nmax+1) - 1;
+<span class="keyword">end</span>
+
+Num_of_trials = 1;              <span class="comment">% Number of trials per stimulus</span>
+
+t = 0:dt:tmax*(Nstims);         <span class="comment">% Time vector</span>
+Nt = round(tmax/dt);            <span class="comment">% Number of time points</span>
+</pre><pre class="codeoutput">
+nbin =
+
+   250
+
+</pre><h2 id="5">Space cells on a lattice of size N1 x N2</h2><pre class="codeinput">exponential_dist = 0;           <span class="comment">% flag for exponential dependence of connection prob</span>
+decay_dist = 0.07;              <span class="comment">% frac of sites for decay length</span>
+power_dist = 1.5;
+
+Nx = 20;
+Ny = 20;
+decay_dist = decay_dist*sqrt(Nx*Nx+Ny*Ny);
+NE = Nx*Ny;                     <span class="comment">% Number of neurons in code</span>
+xpos = 1:NE;
+xpos = floor( (xpos-1)/Nx) +1;
+ypos = 1:NE;
+ypos = mod(ypos-1,Nx)+1;
+
+[pos1, pos2] = meshgrid(xpos, xpos);
+Distx = pos1 - pos2;
+Distx = mod(Distx,Nx);
+Distx = min(Distx,Nx-Distx);
+
+[pos1, pos2] = meshgrid(ypos, ypos);
+Disty = pos1 - pos2;
+Disty = mod(Disty,Ny);
+Disty = min(Disty,Ny-Disty);
+
+Dist = sqrt(Distx.*Distx + Disty.*Disty);
+</pre><h2 id="6">Create Probabilist Description of Connection</h2><pre class="codeinput">pmax = 0.5;
+<span class="keyword">if</span> ( exponential_dist)
+    pEE = pmax*exp(-Dist/decay_dist);
+<span class="keyword">else</span>
+    pEE = pmax./(1+Dist.^power_dist);
+<span class="keyword">end</span>
+pmean = mean(mean(pEE-diag(diag(pEE))))
+<span class="comment">%pEE = pEEbar*pEE/pmean;</span>
+</pre><pre class="codeoutput">
+pmean =
+
+    0.0331
+
+</pre><h2 id="7">Cell-specific Params</h2><pre class="codeinput"><span class="comment">% CELLS</span>
+Ncells = NE+1;
+
+<span class="comment">% INPUT AND OUTPUT PARAMS</span>
+rmax0E = 100;                   <span class="comment">% Maximum firing rate</span>
+rmax0I = 200;                   <span class="comment">% Maximum firing rate</span>
+rmax = [rmax0E*ones(1,Ncells-1) rmax0I];
+Ith0 = 18;                      <span class="comment">% Current needed for half-maximal firing</span>
+IsigmaTh = 0;                   <span class="comment">% Range of thresholds across all cells</span>
+Iwidth0 = 3;                    <span class="comment">% How far from threshold you need to be for rate to change</span>
+
+<span class="comment">% CONNECTIONS</span>
+Wrecurrent = 200;               <span class="comment">% Strength of connection from one group to itself</span>
+sigmaWEE = 0;                   <span class="comment">% Level of heterogeneity in connection strength</span>
+Wasym = 35/(pmean*(Ncells-1));  <span class="comment">% Strength of connection from one group to another</span>
+sigmaWasym = 0;                 <span class="comment">% Heterogeneity in cross-connections</span>
+WIEval = -320;                  <span class="comment">% Strong cross-inhibition</span>
+sigmaIE = 0;                    <span class="comment">% Heterogeneity in cross-inhibition</span>
+WEIval = 320/(Ncells-1);        <span class="comment">% E to I connection strength</span>
+
+<span class="comment">% TIME CONSTANTS</span>
+tausE = 0.025;
+tausI = 0.005;
+taus = [tausE*ones(1,Ncells-1) tausI];       <span class="comment">% Time constant for synapse</span>
+taudbar = 0.15;
+taudvar = 0.0;
+taud = [taudbar+taudvar*rand(s2,1,Ncells-1) taudbar];        <span class="comment">% Time constant for depression</span>
+taum = 0.010;                   <span class="comment">% Time constant for change in firing rate</span>
+p0E = 0.3;                      <span class="comment">% Base release probability of vesicles</span>
+p0I = 0.1;
+p0 = [p0E*ones(1,Ncells-1) p0I];
+sfrac = 1;                      <span class="comment">% Maximum proportion of receptors activated by a vesicle release</span>
+</pre><h2 id="8">Stimulation Parameters</h2><pre class="codeinput">dI = 0.2;
+stimtime = 0.25;
+dstimtime = 0.010;
+
+Iapp0 = zeros(1,Nstims);
+
+<span class="keyword">if</span>  trial_reset &amp;&amp; dtime == 0
+    Iapp0 = dI:dI:dI*Nstims;    <span class="comment">% Applied current steps</span>
+<span class="keyword">else</span>
+    Iapp0 =  I0*ones(1,Nstims);
+<span class="keyword">end</span>
+
+<span class="keyword">if</span> ( multistim )
+    Iapp0 = zeros(1,Nstims);
+   <span class="keyword">for</span> i = 1:NI
+       Iapp0((i-1)*(Ntimes*(Nmax+1))+1:i*Ntimes*(Nmax+1)) = Iappvec(i);
+   <span class="keyword">end</span>
+   <span class="keyword">for</span> i = Nmax+1:Nmax+1:Nstims
+       Iapp0(i) = 0;
+   <span class="keyword">end</span>
+<span class="keyword">end</span>
+
+trialstimtime = stimtime*ones(1,Nstims);
+<span class="keyword">if</span> dtime
+    trialstimtime = stimtimevec;
+<span class="keyword">end</span>
+
+<span class="keyword">if</span> multistim
+    <span class="keyword">for</span> i = 1:NI
+        <span class="keyword">for</span> j = 1:Ntimes
+            trialstimtime((i-1)*(Ntimes*(Nmax+1))+(j-1)*(Nmax+1)+1: <span class="keyword">...</span>
+                (i-1)*(Ntimes*(Nmax+1))+j*(Nmax+1)) = stimtimevec(j)
+        <span class="keyword">end</span>
+    <span class="keyword">end</span>
+<span class="keyword">end</span>
+
+Iappsigmafrac = 1;
+<span class="comment">% IappHetero = 1 + Iappsigmafrac*(rand(s1,1,Ncells)-0.5);</span>
+<span class="comment">% IappHetero = IappHetero.*(rand(s1,1,Ncells) &lt; fracI );</span>
+IappHetero = [((xpos&lt;=Nx*sqrt(fracI)).*(ypos&lt;=Ny*sqrt(fracI))), 1];
+<span class="comment">% IappHetero = [((xpos&lt;=Nx*(1+sqrt(fracI))/2).*(ypos&lt;=Ny*(1+sqrt(fracI))/2)) ...</span>
+<span class="comment">%     .*((xpos&gt;Nx*(1-sqrt(fracI))/2).*(ypos&gt;Ny*(1-sqrt(fracI))/2)), 1];</span>
+
+Istart = 2;       <span class="comment">% Time to start applied current</span>
+
+sigma = 0.1;       <span class="comment">% standard deviation of noise in current</span>
+Iapp = zeros(length(t),Ncells); <span class="comment">% Applied current for each cell at all time points</span>
+
+<span class="keyword">for</span> stim = 1:Nstims
+    Iend = Istart + trialstimtime(stim);         <span class="comment">% Time to finish appplied current</span>
+    imin = min(round(Istart/dt)+1,length(t));   <span class="comment">% Index of time for applied current</span>
+    imax = min(round(Iend/dt)+1,length(t));     <span class="comment">% Index of time to end applied current</span>
+
+    <span class="keyword">for</span> i = imin:imax
+        Iapp(i+Nt*(stim-1),:) = Iapp0(stim)*IappHetero;
+    <span class="keyword">end</span>
+<span class="keyword">end</span>
+Iapp(:,Ncells) = Icell_Input*Iapp(:,Ncells);
+</pre><h2 id="9">Calculate Connections</h2><pre class="codeinput">WEE = Wasym + sigmaWasym*(rand(s2,NE,NE)-0.5);           <span class="comment">% W is the weight matrix: strength of connections</span>
+WEE = (rand(s2,NE,NE) &lt; pEE ).* WEE;
+
+
+<span class="keyword">for</span> cell1 = 1:NE
+    WEE(cell1,cell1) = Wrecurrent + sigmaWEE*(rand(s2,1)-0.5);    <span class="comment">% This is the strength of self-connections and replaces the other value</span>
+<span class="keyword">end</span>
+
+<span class="keyword">if</span> ( weight_normalization )
+    WEE_mean = mean(mean(WEE));
+    <span class="keyword">for</span> cell1 = 1:NE
+        WEE(:,cell1) = WEE(:,cell1)*WEE_mean/mean(WEE(:,cell1));
+    <span class="keyword">end</span>
+<span class="keyword">end</span>
+
+WEI = WEIval*ones(NE,1);              <span class="comment">% Connection strength to I-cell from other cells</span>
+WIE = WIEval + sigmaIE*(rand(s2,1,NE)-0.5);
+WII = 0.0;             <span class="comment">% I-to-I strength</span>
+
+W = [ WEE WEI; WIE WII];
+</pre><h2 id="10">Calculate Input Parameters</h2><pre class="codeinput">Ith = Ith0*ones(1,Ncells) + IsigmaTh*(rand(s2,1,Ncells)-0.5);
+
+Iwidth = Iwidth0*ones(1,Ncells);
+Ith(Ncells) = 20.0;                  <span class="comment">% Readout cell has a different threshold</span>
+Iwidth(Ncells) = 5.0;               <span class="comment">% Readout cell has a different steepness of slope</span>
+</pre><h2 id="11">Intitialize Trackers and Set Max Trials</h2><pre class="codeinput">meanrate = zeros(length(t),Ncells);                  <span class="comment">% Mean time-dependence averaged across trials</span>
+stdrate = zeros(length(t),Ncells);                   <span class="comment">% Std of time-dependence across trials</span>
+mresponse1 = zeros(Nstims,Ncells,Num_of_trials);      <span class="comment">% Response after time-averaging to each stimulus</span>
+meanresponse1 = zeros(Nstims,Ncells);                  <span class="comment">% Mean response after averaging across trials</span>
+sdresponse1 = zeros(Nstims,Ncells);                    <span class="comment">% Std of responses after averaging across trials</span>
+
+<span class="keyword">if</span> ( test_on)
+    max_trials = 2*Num_of_trials;
+<span class="keyword">else</span>
+    max_trials = Num_of_trials;
+<span class="keyword">end</span>
+</pre><h2 id="12">Trial Simulations</h2><pre class="codeinput"><span class="keyword">for</span> trial = 1:max_trials
+</pre><pre class="codeinput">    trial
+    r = zeros(length(t),Ncells);    <span class="comment">% Firing rate for each cell at all time points</span>
+    D = zeros(length(t),Ncells);    <span class="comment">% Depression variable for each cell at all time points</span>
+    S = zeros(length(t),Ncells);    <span class="comment">% Synaptic gating variable for each cell at all time points</span>
+</pre><pre class="codeoutput">
+trial =
+
+     1
+
+</pre><h2 id="14">Per Stimulation</h2><pre class="codeinput">    <span class="keyword">for</span> stim = 1:Nstims
+</pre><pre class="codeinput">        <span class="keyword">if</span> ( trial_reset || stim == 0 ) || ( multistim &amp;&amp; mod(stim,Nmax+1)==0 )
+            r(1+Nt*(stim-1),:) = 0.0;                            <span class="comment">% Initializing if resetting to different stimuli</span>
+            D(1+Nt*(stim-1),:) = 1.0;
+            S(1+Nt*(stim-1),:) = 0.0;
+        <span class="keyword">else</span>
+            r(1+Nt*(stim-1),:) = r(Nt*(stim),:) ;               <span class="comment">% Do not initialize if continuing to count stimuli</span>
+            D(1+Nt*(stim-1),:) = D(Nt*(stim),:);
+            S(1+Nt*(stim-1),:) = S(Nt*(stim),:);
+        <span class="keyword">end</span>
+</pre><h2 id="16">Step Through Times</h2><pre class="codeinput">        <span class="keyword">for</span> i = 2+Nt*(stim-1):Nt*(stim)                            <span class="comment">% Now integrate through time</span>
+            I = S(i-1,:)*W+Iapp(i,:) <span class="keyword">...</span><span class="comment">        % I depends on feedback (W*S) and applied current</span>
+                + sigma*randn(s1,1)/sqrt(dt);      <span class="comment">% and additional noise</span>
+            <span class="comment">% S(:,i-1) is the vector of synaptic gating</span>
+            <span class="comment">% from the previous time step for all cells</span>
+            <span class="comment">% This gets multiplied by the weight matrix</span>
+            <span class="comment">% to give total feedback current.</span>
+
+            rinf = rmax./(1.+exp(-(I-Ith)./Iwidth));         <span class="comment">% Firing rate curve gives the steady state r</span>
+            r(i,:) = rinf + (r(i-1,:)-rinf)*exp(-dt/taum);  <span class="comment">% Update r from the previous timestep</span>
+
+            Dinf = 1./(1.+p0.*r(i-1,:).*taud);                  <span class="comment">% Steady state value of D for Poisson spiking</span>
+            D(i,:) = Dinf + ( D(i-1,:)-Dinf).*exp(-dt*(p0.*r(i-1,:)+1./taud));  <span class="comment">% Update with adjusted time constant</span>
+
+            Sinf = sfrac*p0.*r(i,:).*D(i,:).*taus./(1.0+sfrac*p0.*r(i,:).*D(i,:).*taus); <span class="comment">% Steady state value of</span>
+            <span class="comment">% synaptic gating vatiable assuming vesicle</span>
+            <span class="comment">% release at a rate p0*r*D</span>
+            S(i,:) = Sinf + ( S(i-1,:)-Sinf).*exp(-dt*(sfrac*p0.*r(i,:).*D(i,:)+1./taus)); <span class="comment">% update S with adjusted tau</span>
+        <span class="keyword">end</span> <span class="comment">% continue to next time step</span>
+
+        <span class="keyword">if</span> (multistim == 0  &amp;&amp; stim &gt; 0 ) || mod(stim,Nmax+1) &gt; 0
+
+            <span class="comment">% First half of trials obtain mean network responses to</span>
+            <span class="comment">% stimuli, used later for confusibility matrix</span>
+            <span class="keyword">if</span> ( trial &lt;= Num_of_trials )
+                meanresponse1(stim,:) = meanresponse1(stim,:) + mean(r(i-Nsec1:i,:));
+                sdresponse1(stim,:) = sdresponse1(stim,:) + mean(r(i-Nsec1:i,:)).*mean(r(i-Nsec1:i,:));
+            <span class="keyword">else</span>
+                <span class="comment">% Second half of trials used as test responses</span>
+                mresponse1(stim,:,trial-Num_of_trials) =  mean(r(i-Nsec1:i,:));
+            <span class="keyword">end</span>
+        <span class="keyword">end</span>
+</pre><pre class="codeinput">    <span class="keyword">end</span>
+</pre><h2 id="18">Post-trial plotting</h2><pre class="codeinput">    <span class="keyword">if</span> figureson
+        figure(1)
+        imagesc(r(:,1:end-1)')
+        colorbar
+        drawnow
+    <span class="keyword">end</span>
+
+    meanrate = meanrate + r;
+    stdrate = stdrate + r.*r;
+</pre><img vspace="5" hspace="5" src="longstim_rantau_spatial12_01.png" style="width:757px;height:690px;" alt=""> <pre class="codeinput"><span class="keyword">end</span>
+</pre><h2 id="20">Correlation Analysis/Figures</h2><pre class="codeinput"><span class="comment">% The following are all analyses of correlations between reponses to the</span>
+<span class="comment">% different stimuli and of the distinguishability of different stimuli</span>
+<span class="comment">% meanresponse1 = meanresponse1/Num_of_trials;</span>
+<span class="comment">% sdresponse1 = sqrt(sdresponse1/Num_of_trials-meanresponse1.*meanresponse1);</span>
+<span class="comment">%</span>
+<span class="comment">% shiftmresponse1 = meanresponse1 - ones(Nstims,1)*mean(meanresponse1)</span>
+<span class="comment">% figure(1)</span>
+<span class="comment">% imagesc(meanresponse1')</span>
+<span class="comment">%</span>
+<span class="comment">% [scorrr1r1, spvalr1r1] = corr(shiftmresponse1',shiftmresponse1')</span>
+<span class="comment">% [corrr1r1, pvalr1r1] = corr(meanresponse1',meanresponse1')</span>
+<span class="comment">%</span>
+<span class="comment">% figure(2)</span>
+<span class="comment">% subplot(1,2,1)</span>
+<span class="comment">% imagesc(scorrr1r1)</span>
+<span class="comment">% subplot(1,2,2)</span>
+<span class="comment">% imagesc(corrr1r1)</span>
+<span class="comment">%</span>
+<span class="comment">% bintvec = 0:bint:tmax*(Nstims+1)-bint;</span>
+<span class="comment">% binmeanrate = zeros(length(bintvec),Ncells);</span>
+<span class="comment">% binstdrate = zeros(length(bintvec),Ncells);</span>
+<span class="comment">%</span>
+<span class="comment">% for i = 1:length(bintvec)</span>
+<span class="comment">%     binmeanrate(i,:) = mean(meanrate((i-1)*nbin+1:i*nbin,:));</span>
+<span class="comment">%     binstdrate(i,:) = mean(stdrate((i-1)*nbin+1:i*nbin,:));</span>
+<span class="comment">% end</span>
+<span class="comment">%</span>
+<span class="comment">%</span>
+<span class="comment">% binmeanrate = binmeanrate/Num_of_trials;</span>
+<span class="comment">% binstdrate = binstdrate/Num_of_trials - binmeanrate.*binmeanrate;</span>
+<span class="comment">%</span>
+<span class="comment">% maxcorrs = zeros(Nstims,Num_of_trials);</span>
+<span class="comment">% for i = 1:Num_of_trials</span>
+<span class="comment">%     trialcorr = corr(squeeze(mresponse1(:,:,i))',meanresponse1');</span>
+<span class="comment">%     [dummy maxcorrs(:,i)] = max(trialcorr);</span>
+<span class="comment">% end</span>
+<span class="comment">%</span>
+<span class="comment">% confusibility = hist(maxcorrs',[1:Nstims]);</span>
+<span class="comment">% confusibility = confusibility/Num_of_trials;</span>
+<span class="comment">% figure(3)</span>
+<span class="comment">% imagesc(confusibility)</span>
+
+<span class="comment">%clear r D S I t meanrate stdrate</span>
+
+<span class="comment">%save many_multi_mems_short3</span>
+</pre><h2 id="21">Excitatory Analysis/Figures</h2><pre class="codeinput">figure()
+meanr = zeros(Nx,Ny);
+meanr(:) = mean(r(:,1:NE));
+imagesc(meanr)
+
+rE = r(:,1:NE)';
+r2D = zeros(Nx,Ny,length(t));
+r2D(:) = rE(:);
+
+<span class="keyword">for</span> j = 1:1000:length(t)-1
+   imagesc(squeeze(r2D(:,:,j)))
+   M(ceil(j/1000)) = getframe;
+<span class="keyword">end</span>
+
+[ h, w, p] = size(M(1).cdata)
+hf = figure();
+set(hf,<span class="string">'Position'</span>,[150 150 w h])
+axis <span class="string">off</span>
+movie(hf,M,1,30,[0 0 0 0])
+</pre><pre class="codeoutput">
+h =
+
+        1125
+
+
+w =
+
+        1173
+
+
+p =
+
+     3
+
+Warning: Cannot set Position while WindowStyle is 'docked' 
+</pre><img vspace="5" hspace="5" src="longstim_rantau_spatial12_02.png" style="width:757px;height:690px;" alt=""> <img vspace="5" hspace="5" src="longstim_rantau_spatial12_03.png" style="width:757px;height:690px;" alt=""> <p class="footer"><br><a href="http://www.mathworks.com/products/matlab/">Published with MATLAB&reg; R2016b</a><br></p></div><!--
+##### SOURCE BEGIN #####
+% many_tuned_count_mems_50f5.m
+% Rate-model code for a network with many stable states.
+
+% Ryan - notes ... I think this code may
+
+clear all; clf; close all;
+
+%% Flags
+figureson = true;              % set to 1 to plot a lot more figures
+test_on = 0;
+
+weight_normalization = true;
+
+%% Randomness
+% 2 random streams, with s2 used for cell and network structure while the
+% other, s1, is used for temporal noise
+[s1] = RandStream.create('mrg32k3a','NumStreams',1,'seed',sum(100*clock))
+[ s2 ] = RandStream.create('mrg32k3a','NumStreams',1,'seed',2)
+
+rand(s1,2,2)
+rand(s2,2,2)
+rand(2,2)
+
+%% Parameter Initialization
+dt = 0.0002;                    % Time step (sec)
+bint = 0.050;                   % Bin width for averaging and plotting rates
+nbin = round(bint/dt)           % Number of time steps per bin
+
+tmax = 22.0;                    % Maximum time per stimulus (sec)
+Nsec1= round(0.5*tmax/dt);      % Number of time steps in half of tmax
+
+multistim = 0;                  % set to 1 if different stimulus types are varied
+
+Nstims = 1;                     % Default value used for single stimulus type
+trial_reset = 1;                % Set to zero to prevent "counting" across trials
+dtime = true;                      % Set to one if stimulus duration varies
+stimtimevec = [0.5];            % Used if stimulus duration varies
+Ntimes = length(stimtimevec);   % Number of different durations
+I0 = 2;
+fracI = 0.1;
+Icell_Input = 0.1;
+Iappvec = [ 1 2 ];              % Used if applied input amplitude varies
+NI = length(Iappvec);           % Number of different amplitudes of input
+
+Nmax = 4;                       % Number of stimuli to count up to
+
+if ( dtime == 1 )               % If stimulus duration changes
+    Nstims = length(stimtimevec);
+end
+
+if (multistim)                  % If multiple variations of stimulus tuype
+    Nstims = length(stimtimevec)*length(Iappvec)*(Nmax+1) - 1;
+end
+
+Num_of_trials = 1;              % Number of trials per stimulus
+
+t = 0:dt:tmax*(Nstims);         % Time vector
+Nt = round(tmax/dt);            % Number of time points
+
+%% Space cells on a lattice of size N1 x N2
+exponential_dist = 0;           % flag for exponential dependence of connection prob
+decay_dist = 0.07;              % frac of sites for decay length
+power_dist = 1.5;
+
+Nx = 20;
+Ny = 20;
+decay_dist = decay_dist*sqrt(Nx*Nx+Ny*Ny);
+NE = Nx*Ny;                     % Number of neurons in code
+xpos = 1:NE;
+xpos = floor( (xpos-1)/Nx) +1;
+ypos = 1:NE;
+ypos = mod(ypos-1,Nx)+1;
+
+[pos1, pos2] = meshgrid(xpos, xpos);
+Distx = pos1 - pos2;
+Distx = mod(Distx,Nx);
+Distx = min(Distx,Nx-Distx);
+
+[pos1, pos2] = meshgrid(ypos, ypos);
+Disty = pos1 - pos2;
+Disty = mod(Disty,Ny);
+Disty = min(Disty,Ny-Disty);
+
+Dist = sqrt(Distx.*Distx + Disty.*Disty);
+
+%% Create Probabilist Description of Connection
+pmax = 0.5;
+if ( exponential_dist)
+    pEE = pmax*exp(-Dist/decay_dist);
+else
+    pEE = pmax./(1+Dist.^power_dist);
+end
+pmean = mean(mean(pEE-diag(diag(pEE))))
+%pEE = pEEbar*pEE/pmean;
+
+%% Cell-specific Params
+
+% CELLS
+Ncells = NE+1;
+
+% INPUT AND OUTPUT PARAMS
+rmax0E = 100;                   % Maximum firing rate
+rmax0I = 200;                   % Maximum firing rate
+rmax = [rmax0E*ones(1,Ncells-1) rmax0I];
+Ith0 = 18;                      % Current needed for half-maximal firing
+IsigmaTh = 0;                   % Range of thresholds across all cells
+Iwidth0 = 3;                    % How far from threshold you need to be for rate to change
+
+% CONNECTIONS
+Wrecurrent = 200;               % Strength of connection from one group to itself
+sigmaWEE = 0;                   % Level of heterogeneity in connection strength
+Wasym = 35/(pmean*(Ncells-1));  % Strength of connection from one group to another
+sigmaWasym = 0;                 % Heterogeneity in cross-connections
+WIEval = -320;                  % Strong cross-inhibition
+sigmaIE = 0;                    % Heterogeneity in cross-inhibition
+WEIval = 320/(Ncells-1);        % E to I connection strength
+
+% TIME CONSTANTS
+tausE = 0.025;
+tausI = 0.005;
+taus = [tausE*ones(1,Ncells-1) tausI];       % Time constant for synapse
+taudbar = 0.15;
+taudvar = 0.0;
+taud = [taudbar+taudvar*rand(s2,1,Ncells-1) taudbar];        % Time constant for depression
+taum = 0.010;                   % Time constant for change in firing rate
+p0E = 0.3;                      % Base release probability of vesicles
+p0I = 0.1;
+p0 = [p0E*ones(1,Ncells-1) p0I];
+sfrac = 1;                      % Maximum proportion of receptors activated by a vesicle release
+
+%% Stimulation Parameters
+dI = 0.2;
+stimtime = 0.25;
+dstimtime = 0.010;
+
+Iapp0 = zeros(1,Nstims);
+
+if  trial_reset && dtime == 0
+    Iapp0 = dI:dI:dI*Nstims;    % Applied current steps
+else
+    Iapp0 =  I0*ones(1,Nstims);
+end
+
+if ( multistim )
+    Iapp0 = zeros(1,Nstims);
+   for i = 1:NI
+       Iapp0((i-1)*(Ntimes*(Nmax+1))+1:i*Ntimes*(Nmax+1)) = Iappvec(i);
+   end
+   for i = Nmax+1:Nmax+1:Nstims
+       Iapp0(i) = 0;
+   end
+end
+
+trialstimtime = stimtime*ones(1,Nstims);
+if dtime
+    trialstimtime = stimtimevec;
+end
+
+if multistim
+    for i = 1:NI
+        for j = 1:Ntimes
+            trialstimtime((i-1)*(Ntimes*(Nmax+1))+(j-1)*(Nmax+1)+1: ...
+                (i-1)*(Ntimes*(Nmax+1))+j*(Nmax+1)) = stimtimevec(j)
+        end
+    end
+end
+
+Iappsigmafrac = 1;
+% IappHetero = 1 + Iappsigmafrac*(rand(s1,1,Ncells)-0.5);
+% IappHetero = IappHetero.*(rand(s1,1,Ncells) < fracI );
+IappHetero = [((xpos<=Nx*sqrt(fracI)).*(ypos<=Ny*sqrt(fracI))), 1];
+% IappHetero = [((xpos<=Nx*(1+sqrt(fracI))/2).*(ypos<=Ny*(1+sqrt(fracI))/2)) ...
+%     .*((xpos>Nx*(1-sqrt(fracI))/2).*(ypos>Ny*(1-sqrt(fracI))/2)), 1];
+
+Istart = 2;       % Time to start applied current
+
+sigma = 0.1;       % standard deviation of noise in current
+Iapp = zeros(length(t),Ncells); % Applied current for each cell at all time points
+
+for stim = 1:Nstims
+    Iend = Istart + trialstimtime(stim);         % Time to finish appplied current
+    imin = min(round(Istart/dt)+1,length(t));   % Index of time for applied current
+    imax = min(round(Iend/dt)+1,length(t));     % Index of time to end applied current
+    
+    for i = imin:imax
+        Iapp(i+Nt*(stim-1),:) = Iapp0(stim)*IappHetero;
+    end
+end
+Iapp(:,Ncells) = Icell_Input*Iapp(:,Ncells);
+
+%% Calculate Connections
+WEE = Wasym + sigmaWasym*(rand(s2,NE,NE)-0.5);           % W is the weight matrix: strength of connections
+WEE = (rand(s2,NE,NE) < pEE ).* WEE;
+
+
+for cell1 = 1:NE
+    WEE(cell1,cell1) = Wrecurrent + sigmaWEE*(rand(s2,1)-0.5);    % This is the strength of self-connections and replaces the other value
+end
+
+if ( weight_normalization )
+    WEE_mean = mean(mean(WEE));
+    for cell1 = 1:NE
+        WEE(:,cell1) = WEE(:,cell1)*WEE_mean/mean(WEE(:,cell1));
+    end
+end
+
+WEI = WEIval*ones(NE,1);              % Connection strength to I-cell from other cells
+WIE = WIEval + sigmaIE*(rand(s2,1,NE)-0.5);
+WII = 0.0;             % I-to-I strength
+
+W = [ WEE WEI; WIE WII];
+
+%% Calculate Input Parameters
+Ith = Ith0*ones(1,Ncells) + IsigmaTh*(rand(s2,1,Ncells)-0.5);
+
+Iwidth = Iwidth0*ones(1,Ncells);
+Ith(Ncells) = 20.0;                  % Readout cell has a different threshold
+Iwidth(Ncells) = 5.0;               % Readout cell has a different steepness of slope
+
+%% Intitialize Trackers and Set Max Trials
+meanrate = zeros(length(t),Ncells);                  % Mean time-dependence averaged across trials
+stdrate = zeros(length(t),Ncells);                   % Std of time-dependence across trials   
+mresponse1 = zeros(Nstims,Ncells,Num_of_trials);      % Response after time-averaging to each stimulus
+meanresponse1 = zeros(Nstims,Ncells);                  % Mean response after averaging across trials
+sdresponse1 = zeros(Nstims,Ncells);                    % Std of responses after averaging across trials
+
+if ( test_on) 
+    max_trials = 2*Num_of_trials;
+else
+    max_trials = Num_of_trials;
+end
+
+%% Trial Simulations
+
+for trial = 1:max_trials
+    trial
+    r = zeros(length(t),Ncells);    % Firing rate for each cell at all time points
+    D = zeros(length(t),Ncells);    % Depression variable for each cell at all time points
+    S = zeros(length(t),Ncells);    % Synaptic gating variable for each cell at all time points
+    
+    %% Per Stimulation
+    for stim = 1:Nstims
+        
+        if ( trial_reset || stim == 0 ) || ( multistim && mod(stim,Nmax+1)==0 )
+            r(1+Nt*(stim-1),:) = 0.0;                            % Initializing if resetting to different stimuli
+            D(1+Nt*(stim-1),:) = 1.0;
+            S(1+Nt*(stim-1),:) = 0.0;
+        else
+            r(1+Nt*(stim-1),:) = r(Nt*(stim),:) ;               % Do not initialize if continuing to count stimuli
+            D(1+Nt*(stim-1),:) = D(Nt*(stim),:);
+            S(1+Nt*(stim-1),:) = S(Nt*(stim),:);
+        end
+        
+        %% Step Through Times
+        for i = 2+Nt*(stim-1):Nt*(stim)                            % Now integrate through time
+            I = S(i-1,:)*W+Iapp(i,:) ...        % I depends on feedback (W*S) and applied current
+                + sigma*randn(s1,1)/sqrt(dt);      % and additional noise
+            % S(:,i-1) is the vector of synaptic gating
+            % from the previous time step for all cells
+            % This gets multiplied by the weight matrix
+            % to give total feedback current.
+            
+            rinf = rmax./(1.+exp(-(I-Ith)./Iwidth));         % Firing rate curve gives the steady state r
+            r(i,:) = rinf + (r(i-1,:)-rinf)*exp(-dt/taum);  % Update r from the previous timestep
+            
+            Dinf = 1./(1.+p0.*r(i-1,:).*taud);                  % Steady state value of D for Poisson spiking
+            D(i,:) = Dinf + ( D(i-1,:)-Dinf).*exp(-dt*(p0.*r(i-1,:)+1./taud));  % Update with adjusted time constant
+            
+            Sinf = sfrac*p0.*r(i,:).*D(i,:).*taus./(1.0+sfrac*p0.*r(i,:).*D(i,:).*taus); % Steady state value of
+            % synaptic gating vatiable assuming vesicle
+            % release at a rate p0*r*D
+            S(i,:) = Sinf + ( S(i-1,:)-Sinf).*exp(-dt*(sfrac*p0.*r(i,:).*D(i,:)+1./taus)); % update S with adjusted tau
+        end % continue to next time step
+
+        if (multistim == 0  && stim > 0 ) || mod(stim,Nmax+1) > 0 
+            
+            % First half of trials obtain mean network responses to
+            % stimuli, used later for confusibility matrix
+            if ( trial <= Num_of_trials )
+                meanresponse1(stim,:) = meanresponse1(stim,:) + mean(r(i-Nsec1:i,:));
+                sdresponse1(stim,:) = sdresponse1(stim,:) + mean(r(i-Nsec1:i,:)).*mean(r(i-Nsec1:i,:));
+            else
+                % Second half of trials used as test responses
+                mresponse1(stim,:,trial-Num_of_trials) =  mean(r(i-Nsec1:i,:));
+            end
+        end
+        
+    end 
+    
+    %% Post-trial plotting
+    if figureson
+        figure(1)
+        imagesc(r(:,1:end-1)')
+        colorbar
+        drawnow
+    end
+    
+    meanrate = meanrate + r;
+    stdrate = stdrate + r.*r;
+    
+end
+
+%% Correlation Analysis/Figures
+
+% The following are all analyses of correlations between reponses to the
+% different stimuli and of the distinguishability of different stimuli
+% meanresponse1 = meanresponse1/Num_of_trials;
+% sdresponse1 = sqrt(sdresponse1/Num_of_trials-meanresponse1.*meanresponse1);
+% 
+% shiftmresponse1 = meanresponse1 - ones(Nstims,1)*mean(meanresponse1)
+% figure(1)
+% imagesc(meanresponse1')
+% 
+% [scorrr1r1, spvalr1r1] = corr(shiftmresponse1',shiftmresponse1')
+% [corrr1r1, pvalr1r1] = corr(meanresponse1',meanresponse1')
+% 
+% figure(2)
+% subplot(1,2,1)
+% imagesc(scorrr1r1)
+% subplot(1,2,2)
+% imagesc(corrr1r1)
+% 
+% bintvec = 0:bint:tmax*(Nstims+1)-bint;
+% binmeanrate = zeros(length(bintvec),Ncells);
+% binstdrate = zeros(length(bintvec),Ncells);
+% 
+% for i = 1:length(bintvec)
+%     binmeanrate(i,:) = mean(meanrate((i-1)*nbin+1:i*nbin,:));
+%     binstdrate(i,:) = mean(stdrate((i-1)*nbin+1:i*nbin,:));
+% end
+% 
+% 
+% binmeanrate = binmeanrate/Num_of_trials;
+% binstdrate = binstdrate/Num_of_trials - binmeanrate.*binmeanrate;
+% 
+% maxcorrs = zeros(Nstims,Num_of_trials);
+% for i = 1:Num_of_trials
+%     trialcorr = corr(squeeze(mresponse1(:,:,i))',meanresponse1');
+%     [dummy maxcorrs(:,i)] = max(trialcorr);    
+% end
+% 
+% confusibility = hist(maxcorrs',[1:Nstims]);
+% confusibility = confusibility/Num_of_trials;
+% figure(3)
+% imagesc(confusibility)
+
+%clear r D S I t meanrate stdrate
+
+%save many_multi_mems_short3
+
+%% Excitatory Analysis/Figures
+
+figure()
+meanr = zeros(Nx,Ny);
+meanr(:) = mean(r(:,1:NE));
+imagesc(meanr)
+
+rE = r(:,1:NE)';
+r2D = zeros(Nx,Ny,length(t));
+r2D(:) = rE(:);
+
+for j = 1:1000:length(t)-1
+   imagesc(squeeze(r2D(:,:,j)))
+   M(ceil(j/1000)) = getframe;
+end
+
+[ h, w, p] = size(M(1).cdata)
+hf = figure();
+set(hf,'Position',[150 150 w h])
+axis off
+movie(hf,M,1,30,[0 0 0 0])
+
+
+##### SOURCE END #####
+--></body></html>

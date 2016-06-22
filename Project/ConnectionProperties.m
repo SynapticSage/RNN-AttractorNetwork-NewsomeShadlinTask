@@ -30,7 +30,7 @@ classdef ConnectionProperties < ConnectionInterface
     %% METHODS THAT DEFINE CONNECTIONS
     methods
         % ------------------------------------------------------------
-        function [this]=Connections_RSG()
+        function [this]=ConnectionProperties()
             fprintf('Set the connection input properties...\n'); 
         end
         % ------------------------------------------------------------

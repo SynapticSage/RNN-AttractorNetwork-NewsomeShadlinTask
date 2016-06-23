@@ -1,4 +1,4 @@
-classdef NeuronProperties < UnitsInterface
+classdef NeuronProperties < UnitInterface
     
     properties
         % Maximum of the excitatory and inhbitory neurons
@@ -27,7 +27,7 @@ classdef NeuronProperties < UnitsInterface
     
     methods
         % ---------------------------------------------------------------
-        function this = NeuronProperties(this)
+        function this = NeuronProperties(this) %#ok<INUSD>
             % Constructor method that primarily determine how the generator
             % should initialize it's data types, gpu-driven or not
             
@@ -48,7 +48,7 @@ classdef NeuronProperties < UnitsInterface
             
         end
         % ---------------------------------------------------------------
-        function this= generateConnections(this)
+        function this= generateOutputParams(this)
             % This function takes all of the parameters given at the outset
             % of the model related to connnections and generates the vector
             % formats needed by the model loop

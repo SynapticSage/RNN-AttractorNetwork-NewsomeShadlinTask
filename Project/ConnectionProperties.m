@@ -1,40 +1,103 @@
 classdef ConnectionProperties < ConnectionInterface
     % Implementation of connections class, that determines weights for our
     % neural units. A different implementation is called for 2D topography
-    % of cells.
-    %
-    % Honestly, there could an even more flexible implementation, that
-    % doesn't presume which connection types have randomness, which don't,
-    % which have asmmetric versus recurrent, which don't, and so on. Nor
-    % assume there are just two cell populations, namely,
-    % excitatory/inhibitory. Which I could see being a huge time saver for
-    % trying out other model styles, rapidly.
+    % of cells. This connection code can support assigning connection to an
+    % arbitrayr number of connection types, not just EE, EI, and so on. If
+    % you place new types into the types property, you can then control
+    % connections between that many populations.  I wrote this to be
+    % general enough such that if I had an idea for changing the way I
+    % connect things, I wouldn't have to reorganize my code much. And I
+    % prefer the order that object-oriented code brings to the table.
     
-    %% INPUT PROPERTIES
+    %% INPUT PROPERTIMES
     % Specific to this implementation of the the connections interface
     % class.
     properties (Access = public)  
         % Parameters that specify the asymmetric and reccurent connection
         % properties, and as well as standard ...
-        Wee_asym; 
-        Wee_recurrent; 
-        Wie_standard;
-        Wei_standard;
-        Wii_standard;
-        % The numbers that sepcify the amount of randomness
-        sigma_ee_asym; 
-        sigma_ee_rec; 
-        sigma_ie; 
+        
+        % ----------------------------------------------------------------
+        % OPTION 1
+            % Base connectivity level for the particular type
+            Base;
+            % Base.EE = base EE value before randomness componenet
+            % Base.IE = base IE value before randomness componenet
+            % et cetera
+       % ----------------------------------------------------------------% ----------------------------------------------------------------
+        % OPTION 2
+            % A connection type either receives an asymmetric input and
+            % recurrent input for it's population .. OR ... it gets a base
+            Asym;
+            Rec;
+            % Asym.EE = asymmetic EE value before randomness componenet
+            % Asym.IE = asymmetric IE value before randomness componenet
+            % et cetera
+        % ----------------------------------------------------------------
+        
+        % A struct whose members specify the randomness in the connection
+        % types above!
+        Sigma;
+        
+        % Recurrence Mode - controls whether the recurrence is applied onto
+        % the unit's self, or whether there are a population of units
+        % defined as a group, who then are recurrent onto themselves
+        PopulationMode;
+        fracPop;
+        
+        % Can veto GPU mode
+        % (Output vectors are stored on the GPU so that downstream
+        % simulation can take advantage of it.)
+        disableGPU=false;
+    end
+    properties (Access = private)
+        % Allowable population types
+        types = {'EE','EI','II','IE'};
+        
+        % Vectors that track exc and inhibitory locations
+        exc; inh;
     end
     
-    %% METHODS THAT DEFINE CONNECTIONS
+    %% METHODS 
     methods
         % ------------------------------------------------------------
-        function [this]=ConnectionProperties()
-            fprintf('Set the connection input properties...\n'); 
+        function [this]=ConnectionProperties(this,varargin) %#ok<INUSL>
+            % Trackers
+            p_set = false;
+            % Apply optional inputs
+            for v = 1:2:numel(varargin)
+                switch varargin{v}
+                    case 'Base', this.Base=varargin{v+1};
+                    case 'Asym', this.Asym=varargin{v+1};
+                    case 'Rec', this.Rec=varargin{v+1};
+                    case 'Sigma', this.Sigma=varargin{v+1};
+                    case 'PopulationMode' 
+                        p_set = true;
+                        this.PopulationMode=varargin{v+1};
+                    otherwise, error('Unrecognized input');
+                end
+            end
+            
+            % If certain inputs were set or not, we apply some basic checks
+            % and balances
+            if ~p_set
+                for t = this.types
+                    this.PopulationMode.(t{1}) = false;
+                end
+            end
+            this.checkTypes();
+        end
+        % ------------------------------------------------------------
+        function [this]=fillDefaultParams(this)
+            % This function applies default parameters to the input
+            % parameters above
         end
         % ------------------------------------------------------------
         function [this,W]=generateConnections(this)
+            % This is the function that calculates the output parameters
+            % that the downstream simulation uses.
+
+            % Check that inputted settings look fine
+            this.checkTypes();
             % Setup shortcut alias
             t=this;
             
@@ -43,51 +106,100 @@ classdef ConnectionProperties < ConnectionInterface
                 'NumStreams',1,'Seed','shuffle');
             
             % Get indices of the exitatory and inhibitory cells
-            exc         = t.identities == 0;
-            inh         = t.identities == 1;
+            this.exc         = t.identities == 0;
+            this.inh         = t.identities == 1;
             nNeurons    = numel(t.identities);
             
             % Initialize all of the various weight matrices to be the size
             % of the eventual W matrix
-            WEE = zeros(nNeurons,nNeurons);
-            WEI = zeros(nNeurons,nNeurons);
-            WII = zeros(nNeurons,nNeurons);
-            WIE = zeros(nNeurons,nNeurons);
+            W.EE = zeros(nNeurons,nNeurons);
+            W.EI = zeros(nNeurons,nNeurons);
+            W.II = zeros(nNeurons,nNeurons);
+            W.IE = zeros(nNeurons,nNeurons);
             % Then the eventual recepticle of all these instatiated values
             t.W = zeros(nNeurons,nNeurons);
             
-            % Find the diagonal indices for the excitatory and inhibitory
-            % cells directly
-            exc_diagonal = sub2ind(size(t.W),find(exc),find(exc));
-            inh_diagonal = sub2ind(size(t.W),find(inh),find(inh));
+            %% First, compute any that have base probabilities set
+            for f = fields(this.Base)
+                type=f{1};
+                sigma=0;
+                if isfield(this.Sigma,type)
+                    sigma = Sigma.(type);
+                    if ischar(sigma)
+                        % If it's a string, the user inputted a function to
+                        % determine the sigma value fo the function.
+                        % sigma=this.conditionalParam(sigma);
+                    elseif isstruct(sigma)
+                        % If it evaluates to a struct, that's a sign that
+                        % the user has provided information about Rec or
+                        % Asym for this particular connection type, and so
+                        % we should skip it
+                        continue;
+                    end
+                end
+                
+                [popX,popY]=this.whichElements(type);
+                base = Base.(type);
+                if isnumeric(base)
+                    W.(type)(popX,popY) = base + ...
+                        sigma*rand(r,sum(popX),sum(popY));
+                end
+            end
             
-            %% Compute E to E connections
-            % First apply the asymmetric connections to all of the e to e
-            % connections
-            WEE(exc,exc) = t.Wee_asym + ...
-                t.sigma_Wee*(rand(r,1)-0.5); % All the asymmetric different to different receive the same value as a consequence of this
-            WEE(exc_diagonal) = t.Wee_recurrent + ...
-                t.sigma_ee_recurrent.*rand(r,1,numel(exc_diagonal));
-            % Provide all the excitatory to inhibitory connections
-            WIE(inh,exc) = t.Wie_standard + ...
-                t.sigma_ie(r,size(WIE(inh,exc)));
-            WEI(exc,inh) = t.Wei_standard;
-            WII(inh,inh) = t.Wii_standard;
+            %% Higher precedence settings, are the asymmetric/recurrent modes
+            % which do not apply blanket probabilities to the entire population
+            % type.
             
+            for f = fields(this.Asym)
+                type=f{1};
+                [popX,popY]=this.whichElements(type);
+                
+                % Get the asymmetric sigma
+                if isfield(this.Sigma,'Asym') && ...
+                        isfield(this.Sigma.Asym, type)
+                    sigmaAsym = this.Sigma.Asym.(type);
+                else
+                    sigmaAsym = 0;
+                end
+                % Get the recurrent sigma
+                if isfield(this.Sigma,'Rec') && ...
+                        isfield(this.Sigma.Rec, type)
+                    sigmaRec = this.Sigma.Rec.(type);
+                else
+                    sigmaRec = 0;
+                end
+                % Get the asymmetric base
+                baseAsym = this.Asym.(type);
+                % Get the recurrent base
+                baseRec = this.Rec.(type);
+                
+                % Check if pop mode set
+                popmode = this.PopulationMode(type);
+                if popmode
+                    % To fill
+                else % Single unit recurrence mode
+                    W.(type)(popX,popY) = baseAsym + ...
+                        sigmaAsym*rand(r,sum(popX),sum(popY));
+                    recInd = ...
+                        ConnectionProperties.getDiagonal(popX);
+                    W.(type)(recInd) = baseRec + ...
+                        sigmaRec*sigmaAsym*rand(r,1,numel(recInd));
+                end  
+            end 
             
             %% Set total connection matrix
             try
                 if gpuDeviceCount > 0
-                    t.W = gpuArray(WEE + WIE + WII + WEI);
+                    t.W = gpuArray(W.EE + W.IE + W.II + W.EI);
                 else
-                    t.W = gpuArray(WEE + WIE + WII + WEI);
+                    t.W = gpuArray(W.EE + W.IE + W.II + W.EI);
                 end
             catch
                 % if gpuDeviceCount function not found or if gpuArray fails
-                % to initialize because of cuda driver problems, then it
+                % to initialize because of CUDA driver problems, then it
                 % catches here and simply creates a standard array.
                 warning('Caught error while trying to assign output');
-                t.W = gpuArray(WEE + WIE + WII + WEI);
+                t.W = gpuArray(W.EE + W.IE + W.II + W.EI);
             end
             
             % Set the matrix that can be optionally returned
@@ -95,6 +207,79 @@ classdef ConnectionProperties < ConnectionInterface
             this=t;
         end
         % ------------------------------------------------------------
+        function checkTypes(this)
+            % Checks that inputs that use has inputted sensible types
+            checks = {'Base','Rec','Asym','Sigma'};
+            for c = checks 
+                if ~isempty(this.(c{1}))
+                    if sum(~ismember(this.(c{1}),this.types))
+                        error('Wrong field inputs to %s',c{1});
+                    end
+                end
+                % If the user provided any functions for the parameters
+                % instead of hard coding them to a property -- then they're
+                % applied here
+                if ~isempty(this.(c{1}))
+                    for f = fields(this.(c{1}))
+                        if ischar(this.(c{1}).(f{1}))
+                            this.(c{1}).(f{1}) = ...
+                                this.conditionalParam(this.(c{1}).(f{1}));
+                        end
+                    end
+                end
+            end
+            
+            % Ensure that every field given to Asym is also provided to Rec
+            if ~isempty(this.Asym)
+                for f = fields(this.Asym)
+                    if ~isfield(this.Rec,f{1})
+                        error('Field %s set in Asym not set in Rec',f{1});
+                    end
+                end
+            end
+            
+            % Vice versa
+            if ~isempty(this.Asym)
+                for f = fields(this.Rec)
+                    if ~isfield(this.Asym,f{1})
+                        error('Field %s set in Rec not set in Asym',f{1});
+                    end
+                end
+            end
+            
+        end
+        % ------------------------------------------------------------
+        function out = conditionalParam(this,str) %#ok<INUSL>
+            out = 0;
+            try
+                eval(['out = ' str]);
+            catch
+                error('The functional input was incorrect.');
+            end
+        end
+        % ------------------------------------------------------------
+        function [popX, popY] = whichElements(this,type)
+            loc = find(ismember(type,this.types));
+            switch loc
+                case 1
+                    popX=this.exc; popY=this.exc;
+                case 2
+                    popX=this.exc; popY=this.inh;
+                case 3
+                    popX=this.inh; popY=this.inh;
+                case 4
+                    popX=this.inh; popY=this.exc;
+                otherwise
+                    error('Invalid option');
+            end
+        end
+    end
+    % ------------------------------------------------------------
+    methods (Static)
+        function out = getDiagonal(elements)
+             % Find the diagonal indices for a subset of cells
+            out = sub2ind(size(t.W),find(elements),find(elements));
+        end
     end
     
 end

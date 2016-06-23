@@ -74,7 +74,7 @@ classdef InputStimulus_Simple < StimuliInterface
     end
     
     % OUTPUT PROPERTY
-    properties
+    properties (SetAccess = protected)
         Iapp;       % Complete record of stimulus for all t
         trialBin;   % Record of start and stop bin per trial
     end

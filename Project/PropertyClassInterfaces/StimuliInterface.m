@@ -17,7 +17,7 @@ classdef StimuliInterface % Abstract Class
     end
     
     % OUTPUT
-    properties (Access = public)
+    properties (SetAccess = protected)
         I_W; % Weights to the stimulus, uniform vector if all units receive same input
         Iapp;
     end

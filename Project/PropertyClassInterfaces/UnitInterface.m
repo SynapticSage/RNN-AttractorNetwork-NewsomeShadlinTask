@@ -14,7 +14,7 @@ classdef UnitInterface % Abstract Class
    end
    
    % OUTPUT PARAMS
-   properties
+   properties (SetAccess = protected)
        % Time Constants
        tauM;
        tauD;

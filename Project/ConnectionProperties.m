@@ -87,12 +87,14 @@ classdef ConnectionProperties < ConnectionInterface
             this.checkTypes();
         end
         % ------------------------------------------------------------
-        function [this]=fillDefaultParams(this)
-            % This function applies default parameters to the input
-            % parameters above
+        function [W] = returnOutputs(this)
+            % Common to all interfaces, there is a return function that
+            % returns all vectors that will be used in the simulation. Some
+            % objects return one output; some many.
+            W=this.W;
         end
         % ------------------------------------------------------------
-        function [this,W]=generateConnections(this)
+        function [this]=generateConnections(this)
             % This is the function that calculates the output parameters
             % that the downstream simulation uses.
 
@@ -106,9 +108,9 @@ classdef ConnectionProperties < ConnectionInterface
                 'NumStreams',1,'Seed','shuffle');
             
             % Get indices of the exitatory and inhibitory cells
-            this.exc         = t.identities == 0;
-            this.inh         = t.identities == 1;
-            nNeurons    = numel(t.identities);
+            this.exc         = t.neurIdentities == 0;
+            this.inh         = t.neurIdentities == 1;
+            nNeurons    = numel(t.neurIdentities);
             
             % Initialize all of the various weight matrices to be the size
             % of the eventual W matrix
@@ -124,7 +126,7 @@ classdef ConnectionProperties < ConnectionInterface
                 type=f{1};
                 sigma=0;
                 if isfield(this.Sigma,type)
-                    sigma = Sigma.(type);
+                    sigma = this.Sigma.(type);
                     if ischar(sigma)
                         % If it's a string, the user inputted a function to
                         % determine the sigma value fo the function.
@@ -139,7 +141,7 @@ classdef ConnectionProperties < ConnectionInterface
                 end
                 
                 [popX,popY]=this.whichElements(type);
-                base = Base.(type);
+                base = this.Base.(type);
                 if isnumeric(base)
                     W.(type)(popX,popY) = base + ...
                         sigma*rand(r,sum(popX),sum(popY));
@@ -149,43 +151,44 @@ classdef ConnectionProperties < ConnectionInterface
             %% Higher precedence settings, are the asymmetric/recurrent modes
             % which do not apply blanket probabilities to the entire population
             % type.
-            
-            for f = fields(this.Asym)
-                type=f{1};
-                [popX,popY]=this.whichElements(type);
-                
-                % Get the asymmetric sigma
-                if isfield(this.Sigma,'Asym') && ...
-                        isfield(this.Sigma.Asym, type)
-                    sigmaAsym = this.Sigma.Asym.(type);
-                else
-                    sigmaAsym = 0;
+            if ~isempty(this.Asym)
+                for f = fields(this.Asym)
+                    type=f{1};
+                    [popX,popY]=this.whichElements(type);
+
+                    % Get the asymmetric sigma
+                    if isfield(this.Sigma,'Asym') && ...
+                            isfield(this.Sigma.Asym, type)
+                        sigmaAsym = this.Sigma.Asym.(type);
+                    else
+                        sigmaAsym = 0;
+                    end
+                    % Get the recurrent sigma
+                    if isfield(this.Sigma,'Rec') && ...
+                            isfield(this.Sigma.Rec, type)
+                        sigmaRec = this.Sigma.Rec.(type);
+                    else
+                        sigmaRec = 0;
+                    end
+                    % Get the asymmetric base
+                    baseAsym = this.Asym.(type);
+                    % Get the recurrent base
+                    baseRec = this.Rec.(type);
+
+                    % Check if pop mode set
+                    popmode = this.PopulationMode(type);
+                    if popmode
+                        % To fill
+                    else % Single unit recurrence mode
+                        W.(type)(popX,popY) = baseAsym + ...
+                            sigmaAsym*rand(r,sum(popX),sum(popY));
+                        recInd = ...
+                            ConnectionProperties.getDiagonal(popX);
+                        W.(type)(recInd) = baseRec + ...
+                            sigmaRec*sigmaAsym*rand(r,1,numel(recInd));
+                    end  
                 end
-                % Get the recurrent sigma
-                if isfield(this.Sigma,'Rec') && ...
-                        isfield(this.Sigma.Rec, type)
-                    sigmaRec = this.Sigma.Rec.(type);
-                else
-                    sigmaRec = 0;
-                end
-                % Get the asymmetric base
-                baseAsym = this.Asym.(type);
-                % Get the recurrent base
-                baseRec = this.Rec.(type);
-                
-                % Check if pop mode set
-                popmode = this.PopulationMode(type);
-                if popmode
-                    % To fill
-                else % Single unit recurrence mode
-                    W.(type)(popX,popY) = baseAsym + ...
-                        sigmaAsym*rand(r,sum(popX),sum(popY));
-                    recInd = ...
-                        ConnectionProperties.getDiagonal(popX);
-                    W.(type)(recInd) = baseRec + ...
-                        sigmaRec*sigmaAsym*rand(r,1,numel(recInd));
-                end  
-            end 
+            end
             
             %% Set total connection matrix
             try
@@ -209,10 +212,10 @@ classdef ConnectionProperties < ConnectionInterface
         % ------------------------------------------------------------
         function checkTypes(this)
             % Checks that inputs that use has inputted sensible types
-            checks = {'Base','Rec','Asym','Sigma'};
+            checks = {'Base','Rec','Asym'};
             for c = checks 
                 if ~isempty(this.(c{1}))
-                    if sum(~ismember(this.(c{1}),this.types))
+                    if sum(~ismember(fields(this.(c{1})),this.types))
                         error('Wrong field inputs to %s',c{1});
                     end
                 end

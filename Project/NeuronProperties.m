@@ -17,8 +17,8 @@ classdef NeuronProperties < UnitInterface
         tauDbar;
         tauDvar;
         
-        % Specification for fraction of receptors activated by release
-        sfrac=1;
+       % Synaptic release/binding probs/fractions
+       sFrac=1;
     end
     
     properties (Access=protected)
@@ -62,8 +62,8 @@ classdef NeuronProperties < UnitInterface
                 'NumStreams',1,'Seed','shuffle');
             
             % Get indices of the exitatory and inhibitory cells
-            exc         = t.identities == 0;
-            inh         = t.identities == 1;
+            exc         = t.neurIdentities == 0;
+            inh         = t.neurIdentities == 1;
             
             % Assign the rMax vector
             t.rMax = this.initFunction(t.neurIdentities);
@@ -78,7 +78,7 @@ classdef NeuronProperties < UnitInterface
             % Assign the depression time const...
             % creates a random constant for the excitatory cells, and a
             % non-random for inhibitory cells
-            t.tauD = zeros(size(t.neurIdentities));
+            t.tauD = this.initFunction(t.neurIdentities);
             t.tauD(exc) = t.tauDbar + t.tauDvar*rand(r,size(t.tauD(exc)));
             t.tauD(inh) = t.tauDbar;
             
@@ -88,13 +88,24 @@ classdef NeuronProperties < UnitInterface
             t.p0(inh) = t.p0I;
             
             % Specify the sfrac
+            if isempty(t.sFrac)
+                error('Input sFrac');
+            end
             if isscalar(t.sFrac)
                 sFrac=t.sFrac;
                 t.sFrac = this.initFunction(t.neurIdentities);
                 t.sFrac(:) = sFrac;
             end
             
+            this=t;
+            
         end
+        % ---------------------------------------------------------------
+        function [tauM,tauD,tauS,p0,rMax] = returnOutputs(this)
+            tauM=this.tauM; tauD=this.tauD; tauS=this.tauS;
+            p0=this.p0; rMax=this.rMax;
+        end
+        % ---------------------------------------------------------------
     end
     
 end

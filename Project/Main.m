@@ -65,32 +65,48 @@ neurIdentites=[false(1,params.nExc) true(1,params.nInh)];
 % NEURAL VECTORS
 N = NeuronProperties; % Encapsulated code for setting up overall neuron/synaptic vectors
     % First, we set the properties to build the the output properties
+    N.neurIdentities = neurIdentites;
     N.rMax0E=params.rMax0E; N.rMax0I=params.rMax0I;
     N.p0E=params.p0E; N.p0I=params.p0I;
     N.tausE=params.tausE; N.tausI=params.tausI;
     N.tauDbar=params.tauDbar; N.tauDvar=params.tauDvar;
     % Then, we invoke the generation method to create them
-    N.generateOutputParams;
+    N = N.generateOutputParams;
+    % last return the gpu vectors for the simulation
+    [tauM,tauD,tauS,p0,rMax]=N.returnOutputs();
 
 % ------------------------------------------------------------------------
 % CONECTION VECTORS
 C = ConnectionProperties; % Encapsulated code for computing overall W vector
     % First, we set the properties to build the W matrix
+    C.neurIdentities=neurIdentites;
     C.Rec.EE = params.Wrecurrent;
-    C.Sig.Rec.EE = params.sigmaWEE; C.Sig.Asym.EE = params.sigmaWEE;
+    C.Sigma.Rec.EE = params.sigmaWEE; C.Sigma.Asym.EE = params.sigmaWEE;
     C.Base.IE = params.WIEval; C.Sigma.IE = params.sigmaIE;
     % then, we invoke the generation method to create W
-    W = C.generateConnections();
-
+    C = C.generateConnections();
+    % last return the gpu vectors for the simulation
+    [W]=C.returnOutputs();
+    
 % ------------------------------------------------------------------------
 % STIMULI VECTORS
     % (1) Setup Context Stimulus
+    Context = InputStimulus_Simple();
+        Context.trialStart  = params.context_trialStart;
+        Context.trialEnd    = params.context_trialEnd;
     % (2) Setup Dot Stimulus
+    Dots = InputStimulus_Simple();
+        Dots.trialStart     = params.dot_trialStart;
+        Dots.trialEnd       = params.dot_trialEnd;
     % (3) Setup Color Stimulus
+    Color = InputStimulus_Simple();
+        Color.trialStart    = params.color_trialStart;
+        Color.trialEnd      = params.color_trialEnd;
+   % Last return the gpu vectors for the simulation
 
 %% Execute Simulation
 for trial = 1:max_trials
-    trial
+
     r = zeros(length(t),Ncells);    % Firing rate for each cell at all time points
     D = zeros(length(t),Ncells);    % Depression variable for each cell at all time points
     S = zeros(length(t),Ncells);    % Synaptic gating variable for each cell at all time points

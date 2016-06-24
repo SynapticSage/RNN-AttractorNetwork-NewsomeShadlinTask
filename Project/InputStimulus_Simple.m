@@ -19,10 +19,13 @@ classdef InputStimulus_Simple < StimuliInterface
         % Hetergeneity
         iFrac; % Percentage of neurons receiving stimulus
         
+        % See interface superclass for other defintions
+        
     end
     
     % METHODS TO GEN STIMULI
     methods
+        % ---------------------------------------------------------------
         function this = generateStimuli(this,dt)
             
             %% Pre-processing steps
@@ -71,11 +74,18 @@ classdef InputStimulus_Simple < StimuliInterface
             end
             
         end
+        % ---------------------------------------------------------------
+        function [Iapp, trialBin] = returnOutputs(this)
+            Iapp = this.Iapp; trialBin = this.trialBin;
+        end
+        % ---------------------------------------------------------------
     end
     
     % OUTPUT PROPERTY
     properties (SetAccess = protected)
-        Iapp;       % Complete record of stimulus for all t
+        % See interface for other definitions
+        
+        % Specific to this class
         trialBin;   % Record of start and stop bin per trial
     end
 

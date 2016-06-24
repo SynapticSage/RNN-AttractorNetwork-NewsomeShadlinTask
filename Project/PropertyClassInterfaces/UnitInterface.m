@@ -11,6 +11,7 @@ classdef UnitInterface % Abstract Class
    % parameters provided by to the constructor
    methods (Abstract)
        generateOutputParams(this);
+       returnOutputs(this);
    end
    
    % OUTPUT PARAMS
@@ -20,8 +21,6 @@ classdef UnitInterface % Abstract Class
        tauD;
        tauS;
        
-       % Synaptic release/binding probs/fractions
-       sFrac;
        p0;
        
        % Max Firing rates

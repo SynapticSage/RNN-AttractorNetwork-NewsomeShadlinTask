@@ -12,7 +12,7 @@ classdef ConnectionInterface % Abstract Class
     % Methods that control assignment of the W given the rules of the class
     methods (Abstract)
         generateConnections(this);    % abstract method for controlling the specification of weights, dependent on neural subtypes
-%       identitityRule(this);         % abstract method that controls transformation of neuron identity inputs into a form more useful for generateConnections
+        returnOutputs(this);
     end
     
     % OUTPUTS

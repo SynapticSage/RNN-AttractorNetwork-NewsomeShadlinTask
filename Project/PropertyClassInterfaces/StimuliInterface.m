@@ -14,12 +14,12 @@ classdef StimuliInterface % Abstract Class
         % across the neural population, given correct parameters. This
         % method can be implemented for any stimulus regime.
         generateStimuli(this); 
+        returnOutputs(this);
     end
     
     % OUTPUT
     properties (SetAccess = protected)
-        I_W; % Weights to the stimulus, uniform vector if all units receive same input
-        Iapp;
+%         Iapp;
     end
     
 end

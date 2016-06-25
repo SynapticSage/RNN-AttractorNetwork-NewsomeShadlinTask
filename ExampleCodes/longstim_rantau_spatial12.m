@@ -240,7 +240,7 @@ end
 %% Trial Simulations
 
 for trial = 1:max_trials
-    trial
+    
     r = zeros(length(t),Ncells);    % Firing rate for each cell at all time points
     D = zeros(length(t),Ncells);    % Depression variable for each cell at all time points
     S = zeros(length(t),Ncells);    % Synaptic gating variable for each cell at all time points

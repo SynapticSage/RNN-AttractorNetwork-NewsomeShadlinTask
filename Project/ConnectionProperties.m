@@ -47,7 +47,7 @@ classdef ConnectionProperties < ConnectionInterface
         % Can veto GPU mode
         % (Output vectors are stored on the GPU so that downstream
         % simulation can take advantage of it.)
-        disableGPU=false;
+        useGPU=true;
     end
     properties (Access = private)
         % Allowable population types
@@ -91,7 +91,12 @@ classdef ConnectionProperties < ConnectionInterface
             % Common to all interfaces, there is a return function that
             % returns all vectors that will be used in the simulation. Some
             % objects return one output; some many.
-            W=this.W;
+            
+            if this.useGPU
+                W=gpuArray(this.W);
+            else
+                W=this.W;
+            end
         end
         % ------------------------------------------------------------
         function [this]=generateConnections(this)
@@ -191,22 +196,7 @@ classdef ConnectionProperties < ConnectionInterface
             end
             
             %% Set total connection matrix
-            try
-                if gpuDeviceCount > 0
-                    t.W = gpuArray(W.EE + W.IE + W.II + W.EI);
-                else
-                    t.W = gpuArray(W.EE + W.IE + W.II + W.EI);
-                end
-            catch
-                % if gpuDeviceCount function not found or if gpuArray fails
-                % to initialize because of CUDA driver problems, then it
-                % catches here and simply creates a standard array.
-                warning('Caught error while trying to assign output');
-                t.W = gpuArray(W.EE + W.IE + W.II + W.EI);
-            end
-            
-            % Set the matrix that can be optionally returned
-            W=t.W; % for return purposes only
+            t.W = W.EE + W.IE + W.II + W.EI;
             this=t;
         end
         % ------------------------------------------------------------

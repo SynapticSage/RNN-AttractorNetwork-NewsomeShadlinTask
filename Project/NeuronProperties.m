@@ -15,10 +15,30 @@ classdef NeuronProperties < UnitInterface
         
         % Specification for depression time constants
         tauDbar;
-        tauDvar;
+        tauDvar=0;
         
-       % Synaptic release/binding probs/fractions
-       sFrac=1;
+        % Specification for membrane time constants
+        tauMbar;
+        tauMvar=0;
+        
+        % Defautl response to input stimuli
+        Ith0E;
+        Ith0I;
+        
+        % Input width
+        IwidthE;
+        IwidthI;
+        
+        % Isigma threshold
+        IsigmaThE=0;
+        IsigmaThI=0;
+        
+        % Synaptic release/binding probs/fractions
+        sFrac=1;
+
+        % whether use gpuArray in output
+        useGPU=true;
+       
     end
     
     properties (Access=protected)
@@ -31,20 +51,7 @@ classdef NeuronProperties < UnitInterface
             % Constructor method that primarily determine how the generator
             % should initialize it's data types, gpu-driven or not
             
-            fprintf('Set the neuron properties ...\n');
-            
-            try
-            if gpuDeviceCount > 0
-               this.initFunction = @(s) gpuArray(zeros(size(s)));
-            else
-               this.initFunction = @(s) zeros(size(s));
-            end
-            catch
-                % if gpuDeviceCount function not found or if gpuArray fails
-                % to initialize because of cuda driver problems, then it
-                % catches here and simply creates a standard array.
-                this.initFunction = @(s) zeros(size(s));
-            end
+            fprintf('Please set neuron properties ...\n');
             
         end
         % ---------------------------------------------------------------
@@ -66,44 +73,72 @@ classdef NeuronProperties < UnitInterface
             inh         = t.neurIdentities == 1;
             
             % Assign the rMax vector
-            t.rMax = this.initFunction(t.neurIdentities);
+            t.rMax = zeros(size(t.neurIdentities));
             t.rMax(exc) = t.rMax0E;
             t.rMax(inh) = t.rMax0I;
             
             % Assign the synaptic time const
-            t.tauS = this.initFunction(t.neurIdentities);
+            t.tauS = zeros(size(t.neurIdentities));
             t.tauS(exc) = t.tausE;
             t.tauS(inh) = t.tausI;
             
             % Assign the depression time const...
             % creates a random constant for the excitatory cells, and a
             % non-random for inhibitory cells
-            t.tauD = this.initFunction(t.neurIdentities);
+            t.tauD = zeros(size(t.neurIdentities));
             t.tauD(exc) = t.tauDbar + t.tauDvar*rand(r,size(t.tauD(exc)));
             t.tauD(inh) = t.tauDbar;
             
+            % Assign the membrane time constants
+            t.tauM = zeros(size(t.neurIdentities));
+            t.tauM(exc) = t.tauMbar + t.tauMvar*rand(r,size(t.tauM(exc)));
+            t.tauM(inh) = t.tauMbar;
+            
             % Specify the release propabilities per synapse
-            t.p0 = this.initFunction(t.neurIdentities);
+            t.p0 = zeros(size(t.neurIdentities));
             t.p0(exc) = t.p0E;
             t.p0(inh) = t.p0I;
+            
+            % Specify the threshold input and input width
+            t.Iwidth    = zeros(size(t.neurIdentities));
+            t.Ith       = zeros(size(t.neurIdentities));
+            t.Iwidth(exc) = t.IwidthE;
+            t.Iwidth(inh) = t.IwidthI;
+            t.Ith(exc)  = t.Ith0E + rand(size(t.Ith(exc)))*t.IsigmaThE;
+            t.Ith(inh)  = t.Ith0I + rand(size(t.Ith(inh)))*t.IsigmaThI;
             
             % Specify the sfrac
             if isempty(t.sFrac)
                 error('Input sFrac');
             end
             if isscalar(t.sFrac)
-                sFrac=t.sFrac;
-                t.sFrac = this.initFunction(t.neurIdentities);
-                t.sFrac(:) = sFrac;
+                sFrac=t.sFrac; %#ok<PROP>
+                t.sFrac = zeros(size(t.neurIdentities));
+                t.sFrac(:) = sFrac; %#ok<PROP>
             end
             
             this=t;
             
         end
         % ---------------------------------------------------------------
-        function [tauM,tauD,tauS,p0,rMax] = returnOutputs(this)
-            tauM=this.tauM; tauD=this.tauD; tauS=this.tauS;
-            p0=this.p0; rMax=this.rMax;
+        function [tauM,tauD,tauS,p0,rMax,Iwidth,Ith] = returnOutputs(this)
+            if this.useGPU
+                tauM=gpuArray(this.tauM); 
+                tauD=gpuArray(this.tauD); 
+                tauS=gpuArray(this.tauS);
+                p0=gpuArray(this.p0); 
+                rMax=gpuArray(this.rMax);
+                Iwidth=gpuArray(this.Iwidth);
+                Ith=gpuArray(this.Ith);
+            else
+                tauM=this.tauM; 
+                tauD=this.tauD; 
+                tauS=this.tauS;
+                p0=this.p0; 
+                rMax=this.rMax;
+                Iwidth=this.Iwidth;
+                Ith=this.Ith;
+            end
         end
         % ---------------------------------------------------------------
     end

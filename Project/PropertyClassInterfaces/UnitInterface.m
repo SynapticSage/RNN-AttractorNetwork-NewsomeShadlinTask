@@ -21,9 +21,14 @@ classdef UnitInterface % Abstract Class
        tauD;
        tauS;
        
+       % synaptic fraction
        p0;
        
        % Max Firing rates
        rMax;
+       
+       % Current response
+       Ith;
+       Iwidth;
    end
 end

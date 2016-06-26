@@ -1,4 +1,4 @@
-classdef ConnectionProperties < ConnectionInterface
+classdef ConnectionProperties
     % Implementation of connections class, that determines weights for our
     % neural units. A different implementation is called for 2D topography
     % of cells. This connection code can support assigning connection to an
@@ -13,9 +13,10 @@ classdef ConnectionProperties < ConnectionInterface
     % Specific to this implementation of the the connections interface
     % class.
     properties (Access = public)  
+        neurIdentities; % Stores information about the neural units/groups, how they present across the vector -- it's how we label which neurons are which types, and that determines by the rules in the assignment method how to setup the rules.
+        
         % Parameters that specify the asymmetric and reccurent connection
         % properties, and as well as standard ...
-        
         % ----------------------------------------------------------------
         % OPTION 1
             % Base connectivity level for the particular type
@@ -47,7 +48,7 @@ classdef ConnectionProperties < ConnectionInterface
         % Can veto GPU mode
         % (Output vectors are stored on the GPU so that downstream
         % simulation can take advantage of it.)
-        useGPU=true;
+        useGPU=false;
     end
     properties (Access = private)
         % Allowable population types
@@ -93,7 +94,7 @@ classdef ConnectionProperties < ConnectionInterface
             % objects return one output; some many.
             
             if this.useGPU
-                W=gpuArray(this.W);
+                W=gpuArray(single(this.W));
             else
                 W=this.W;
             end
@@ -273,6 +274,11 @@ classdef ConnectionProperties < ConnectionInterface
              % Find the diagonal indices for a subset of cells
             out = sub2ind(size(t.W),find(elements),find(elements));
         end
+    end
+    
+    % OUTPUT PROPERTIES
+    properties (SetAccess = private)
+        W; % Stores the resulting connection strenghts
     end
     
 end

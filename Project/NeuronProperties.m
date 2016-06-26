@@ -1,6 +1,11 @@
-classdef NeuronProperties < UnitInterface
+classdef NeuronProperties
     
     properties
+        % Vector marking how many excitatory and how many inhibitory
+        % neurons as well as their (arbitrary) positions in a vector, which
+        % subsequently determines how other vectors populate
+        neurIdentities;
+        
         % Maximum of the excitatory and inhbitory neurons
         rMax0E;
         rMax0I;
@@ -37,7 +42,7 @@ classdef NeuronProperties < UnitInterface
         sFrac=1;
 
         % whether use gpuArray in output
-        useGPU=true;
+        useGPU=false;
        
     end
     
@@ -123,13 +128,13 @@ classdef NeuronProperties < UnitInterface
         % ---------------------------------------------------------------
         function [tauM,tauD,tauS,p0,rMax,Iwidth,Ith] = returnOutputs(this)
             if this.useGPU
-                tauM=gpuArray(this.tauM); 
-                tauD=gpuArray(this.tauD); 
-                tauS=gpuArray(this.tauS);
-                p0=gpuArray(this.p0); 
-                rMax=gpuArray(this.rMax);
-                Iwidth=gpuArray(this.Iwidth);
-                Ith=gpuArray(this.Ith);
+                tauM=gpuArray(single(this.tauM)); 
+                tauD=gpuArray(single(this.tauD)); 
+                tauS=gpuArray(single(this.tauS));
+                p0=gpuArray(single(this.p0)); 
+                rMax=gpuArray(single(this.rMax));
+                Iwidth=gpuArray(single(this.Iwidth));
+                Ith=gpuArray(single(this.Ith));
             else
                 tauM=this.tauM; 
                 tauD=this.tauD; 
@@ -141,6 +146,24 @@ classdef NeuronProperties < UnitInterface
             end
         end
         % ---------------------------------------------------------------
+    end
+    
+    % OUTPUT PROPERTIES
+    properties (SetAccess = protected)
+        % Time Constants
+       tauM;
+       tauD;
+       tauS;
+       
+       % synaptic fraction
+       p0;
+       
+       % Max Firing rates
+       rMax;
+       
+       % Current response
+       Ith;
+       Iwidth;
     end
     
 end

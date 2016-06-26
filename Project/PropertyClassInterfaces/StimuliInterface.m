@@ -4,13 +4,7 @@ classdef StimuliInterface % Abstract Class
     
     % INPUT
     properties (Access = public)
-        % General stimulus property
-        I_base = 1;     % Default scale of the stimulus .. 
-        
-        % General things that the stimulus has to have acces to to
-        % calculate inputs wrt neurons and model time
-        neurIdentities; % Universal identity bector that labels how many neurons of what types, and in which locations in the vector
-        dt;
+     
     end
     
     % Methods that determine stimulus properties
@@ -24,9 +18,7 @@ classdef StimuliInterface % Abstract Class
     
     % OUTPUT
     properties (SetAccess = protected)
-        % General applied current due to the stimulus to the n units in the
-        % simulation.
-         Iapp;
+        
     end
     
 end

@@ -1,8 +1,11 @@
 % Main for the script that implements an attractor based neural firing
 % model on a stimulus regime that's supposed to mimic the Mante task.
 
+%% Pre-processing
+reset(gpuDevice(1)); % Resets gpu memory, if anything is in it.
+
 %% General Flags
-useGPU = true;
+useGPU = false;
 trialReset = false;
 
 %% General Paramters
@@ -18,11 +21,11 @@ trialReset = false;
 if ~exist('params','var') || ~isstruct(params) 
    params = struct( ...
            ... Model Resolution/Precision
-           'dt',    2e-4, ... Model bin size
+           'dt',    2e-3, ... Model bin size
            'bin_t', 5e-2, ... How to bin post hoc for analysis
        ... ---TASK PARAMETERS---
            ... General Trial Controls
-           'nTrials',       100, ...
+           'nTrials',       5, ...
            'trialDuration', 3, ...
            ... General Stimulus
            'iFrac',         0.33, ...   Randomly select a third of the population for a stimulus to receive
@@ -70,41 +73,43 @@ end
 
 % Setup neuron counts
 neurIdentites=[false(1,params.nExc) true(1,params.nInh)];
+nCells = params.nExc + params.nInh;
 
 %% Initialize Parameter-based Simulation Vectors
 % ------------------------------------------------------------------------
 % NEURAL VECTORS
-N = NeuronProperties; % Encapsulated code for setting up overall neuron/synaptic vectors
+NP = NeuronProperties; % Encapsulated code for setting up overall neuron/synaptic vectors
     % First, we set the properties to build the the output properties
-    N.neurIdentities = neurIdentites;
-    N.rMax0E=params.rMax0E; N.rMax0I=params.rMax0I;
-    N.p0E=params.p0E; N.p0I=params.p0I;
-    N.tausE=params.tausE; N.tausI=params.tausI;
-    N.tauDbar=params.tauDbar; N.tauDvar=params.tauDvar;
-    N.tauMbar=params.tauM;
-    N.IwidthI =  params.IwidthI; N.IwidthE = params.IwidthE;
-    N.Ith0E =  params.IthE; N.Ith0I = params.IthI;
+    NP.neurIdentities = neurIdentites;
+    NP.rMax0E=params.rMax0E; NP.rMax0I=params.rMax0I;
+    NP.p0E=params.p0E; NP.p0I=params.p0I;
+    NP.tausE=params.tausE; NP.tausI=params.tausI;
+    NP.tauDbar=params.tauDbar; NP.tauDvar=params.tauDvar;
+    NP.tauMbar=params.tauM;
+    NP.IwidthI =  params.IwidthI; NP.IwidthE = params.IwidthE;
+    NP.Ith0E =  params.IthE; NP.Ith0I = params.IthI;
     
     % Then, we invoke the generation method to create them
-    N = N.generateOutputParams;
+    NP = NP.generateOutputParams;
     
     % last return the gpu vectors for the simulation
-    [tauM,tauD,tauS,p0,rMax,Iwidth,Ith] = N.returnOutputs();
+    [tauM,tauD,tauS,p0,rMax,Iwidth,Ith] = NP.returnOutputs(); clear NP;
 
 % ------------------------------------------------------------------------
 % CONECTION VECTORS
-C = ConnectionProperties; % Encapsulated code for computing overall W vector
+Connect = ConnectionProperties; % Encapsulated code for computing overall W vector
     % First, we set the properties to build the W matrix
-    C.neurIdentities=neurIdentites;
-    C.Rec.EE = params.Wrecurrent;
-    C.Sigma.Rec.EE = params.sigmaWEE; C.Sigma.Asym.EE = params.sigmaWEE;
-    C.Base.IE = params.WIEval; C.Sigma.IE = params.sigmaIE;
+    Connect.neurIdentities=neurIdentites;
+    Connect.Rec.EE = params.Wrecurrent;
+    Connect.Sigma.Rec.EE = params.sigmaWEE; 
+    Connect.Sigma.Asym.EE = params.sigmaWEE;
+    Connect.Base.IE = params.WIEval; Connect.Sigma.IE = params.sigmaIE;
     
     % then, we invoke the generation method to create W
-    C = C.generateConnections();
+    Connect = Connect.generateConnections();
     
     % last return the gpu vectors for the simulation
-    [W] = C.returnOutputs();
+    [W] = Connect.returnOutputs(); clear Connect;
     
 % ------------------------------------------------------------------------
 % STIMULI VECTORS
@@ -116,40 +121,47 @@ C = ConnectionProperties; % Encapsulated code for computing overall W vector
         GeneralStim.nTrials = params.nTrials; % number of trials
         GeneralStim.trialDuration = params.trialDuration; % seconds
         GeneralStim.iFrac = 0.3;
-    
     % (1) Setup Context Stimulus
     Context = GeneralStim;
         Context.trialStart  = params.context_trialStart;
         Context.trialStop   = params.context_trialEnd;
         Context.nStates     = 2;
         Context=Context.generateStimuli();
+        [Iapp_context, trialBin, t] = Context.returnOutputs();
     % (2) Setup Dot Stimulus
     Dots = GeneralStim;
         Dots.trialStart     = params.dot_trialStart;
         Dots.trialStop      = params.dot_trialEnd;
         Dots.nStates        = 3;
         Dots=Dots.generateStimuli();
+        [Iapp_dots] = Dots.returnOutputs();
     % (3) Setup Color Stimulus
     Color = GeneralStim;
         Color.trialStart    = params.color_trialStart;
         Color.trialStop     = params.color_trialEnd;
         Color.nStates        = 3;
         Color=Color.generateStimuli();
-   % Last return the gpu vectors for the simulation
+        [Iapp_color] = Color.returnOutputs();
+    clear Context Dots Color GeneralStim;
+    clear Context Dots Color GeneralStim;
+   
+   % Store the superposition of the inputs;
+   Iapp = Iapp_context + Iapp_color + Iapp_dots;
+   clear Iapp_context Iapp_dots Iapp_color;
    
 %% Initialize statistic trackers
-meanrate = zeros(length(t),Ncells);                     % Mean time-dependence averaged across trials
-stdrate = zeros(length(t),Ncells);                      % Std of time-dependence across trials   
-mresponse1 = zeros(Nstims,Ncells,Num_of_trials);        % Response after time-averaging to each stimulus
-meanresponse1 = zeros(Nstims,Ncells);                   % Mean response after averaging across trials
-sdresponse1 = zeros(Nstims,Ncells);                     % Std of responses after averaging across trials
+% meanrate        = zeros(length(t),nCells);                     % Mean time-dependence averaged across trials
+% stdrate         = zeros(length(t),nCells);                      % Std of time-dependence across trials   
+% mresponse1      = zeros(Nstims,nCells,Num_of_trials);        % Response after time-averaging to each stimulus
+% meanresponse1   = zeros(Nstims,nCells);                   % Mean response after averaging across trials
+% sdresponse1     = zeros(Nstims,nCells);                     % Std of responses after averaging across trials
 
 %% Execute Simulation
-for trial = 1:max_trials
+for trial = 1:params.nTrials
 
-    r = zeros(length(t),Ncells);    % Firing rate for each cell at all time points
-    D = zeros(length(t),Ncells);    % Depression variable for each cell at all time points
-    S = zeros(length(t),Ncells);    % Synaptic gating variable for each cell at all time points
+    r = zeros(length(t),nCells);    % Firing rate for each cell at all time points
+    D = zeros(length(t),nCells);    % Depression variable for each cell at all time points
+    S = zeros(length(t),nCells);    % Synaptic gating variable for each cell at all time points
     
     if useGPU
         r=gpuArray(r);
@@ -168,9 +180,9 @@ for trial = 1:max_trials
         end
         
     %% Step Through Times
-    startTime   = 2+Nt*(stim-1);
-    stopTime    = Nt*(stim);
-    for i = startTime:stopTime
+    startInd   = trialBin(trial,1);
+    stopInd    = trialBin(trial,2);
+    for i = startInd:stopInd
         
         I = S(i-1,:)*W+Iapp(i,:) ...        % I depends on feedback (W*S) and applied current
             + sigma*randn(s1,1)/sqrt(dt);   % and additional noise
@@ -188,20 +200,20 @@ for trial = 1:max_trials
     end
 
     %% Add to post-trial statistics
-    if (multistim == false  && stim > 0 ) || mod(stim,Nmax+1) > 0 
-
-        % First half of trials obtain mean network responses to
-        % stimuli, used later for confusibility matrix
-        if trial <= Num_of_trials
-            meanresponse1(stim,:) = meanresponse1(stim,:) + ...
-                mean(r(i-Nsec1:i,:));
-            sdresponse1(stim,:) = sdresponse1(stim,:) + ...
-                mean(r(i-Nsec1:i,:)).*mean(r(i-Nsec1:i,:));
-        else
-            % Second half of trials used as test responses
-            mresponse1(stim,:,trial-Num_of_trials) =  mean(r(i-Nsec1:i,:));
-        end
-    end
+%     if (multistim == false  && stim > 0 ) || mod(stim,Nmax+1) > 0 
+% 
+%         % First half of trials obtain mean network responses to
+%         % stimuli, used later for confusibility matrix
+%         if trial <= Num_of_trials
+%             meanresponse1(stim,:) = meanresponse1(stim,:) + ...
+%                 mean(r(i-Nsec1:i,:));
+%             sdresponse1(stim,:) = sdresponse1(stim,:) + ...
+%                 mean(r(i-Nsec1:i,:)).*mean(r(i-Nsec1:i,:));
+%         else
+%             % Second half of trials used as test responses
+%             mresponse1(stim,:,trial-Num_of_trials) =  mean(r(i-Nsec1:i,:));
+%         end
+%     end
     
     %% Post-trial plotting
     if figureson

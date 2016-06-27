@@ -267,6 +267,33 @@ classdef ConnectionProperties
                     error('Invalid option');
             end
         end
+        % ------------------------------------------------------------
+        function out = figureOutput(this,savedir) %#ok<INUSL>
+            % Prints a visual description of the generated connections into
+            % a save folder
+            if nargin==1;savedir=pwd;end;
+            
+            % Generate plot of connections
+            f=figure(100);
+            axs = 1:numel(this.neurIdentities);
+            imagesc(axs,axs,this.W');
+            tite('Connectivity Matrix');
+            xlabel('Neuron #');
+            ylabel('Neuron #');
+            
+            % Demarcate EI border, if neurIdentites were grouped by E and
+            % I.
+            loc = diff(this.neurIdentities) ~=0;
+            if sum(loc) == 1
+                hold on;
+                line(repmat(loc,size(axs)),axs);
+                line(axs,repmat(loc,size(axs)));
+            end
+            
+            % Save
+            saveFigure(f,'Connections');
+            
+        end
     end
     % ------------------------------------------------------------
     methods (Static)

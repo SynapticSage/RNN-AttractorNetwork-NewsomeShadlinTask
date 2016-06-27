@@ -2,10 +2,17 @@
 % model on a stimulus regime that's supposed to mimic the Mante task.
 
 %% General Flags
-useGPU       = false;
-trialReset   = false;
-figureson    = true;
-PE_on        = true;
+
+% ParameterExplorer controlled mode
+PE_mode = false;
+
+% Whether to use GPU
+useGPU = false;
+% Whether to reset network after each trial
+trialReset = false;
+% Turn on additional plotting
+figureson = true;
+
 
 %% Pre-processing
 if useGPU
@@ -22,26 +29,78 @@ end
 % parallel, as many as the processor can support. Third, it has an ability
 % to stop/start in the middle of paramter exploration (checkpoints,
 % automatically).
-if exist('params','var') && parameterexplorer_on
-  % Initialize parameters encoded in params struct
-  ParameterExplorer.swapParamSet(params);
-  % Automatically set save location based on parameters
-  savedir = ParameterExplorer.savelocation(params,...
-      'projectfolder',projectfolder);
-  fprintf('SaveLocation: %s\n',savedir);
+if ~(exist('params','var') && PE_mode)
+   params = struct( ...
+           ... Model Resolution/Precision
+           'dt',    2e-4, ... Model bin size
+           'bin_t', 5e-2, ... How to bin post hoc for analysis
+           ... Model noise
+           'sigma', 0.1,    ...
+       ... ---TASK PARAMETERS---
+           ... General Trial Controls
+           'nTrials',       5, ...
+           'trialDuration', 3, ...
+           ... General Stimulus
+           'iFrac',         0.33, ...   Randomly select a third of the population for a stimulus to receive
+           ... Context Stimulus
+           'context_trialStart',    0.3, ...
+           'context_trialEnd',      1.1, ...
+           ... Color Motion Stimulus
+           'color_trialStart',      0.35, ...
+           'color_trialEnd',        1.1, ...
+           ... Dot Color Stimulus
+           'dot_trialStart',        0.35, ...
+           'dot_trialEnd',          1.1, ...
+       ... ---NEURAL NETWORK PARAMETERS---
+           ... Number of neurons of each type
+           'nInh',      1, ...
+           'nExc',      40, ...
+           ... Neural Properties
+           'rMax0E',    100, ...
+           'rMax0I',    200, ...
+           'p0E',       0.3, ...
+           'p0I',       0.1, ...
+           ...Time Constants
+           'tausE',     0.025, ...
+           'tausI',     0.005, ...
+           'tauDbar',   0.025, ...
+           'tauDvar',   0,     ...
+           'tauM',      0.010, ...
+           ... Input Properties
+           'IwidthE',   3, ...
+           'IthE',      18, ...
+           'IwidthI',   5, ...
+           'IthI',      20, ...
+           ... Connection Properties
+           'Wrecurrent',    200, ...
+           'sigmaWEE',      0, ...
+           'sigmaWasym',    0, ...
+           'WIEval',        -320, ...
+           'sigmaIE',       0 ...
+       );
+   savedir = '~/Data/Miller/Untitled';
 else
-  savedir = '~/Data/Miller/Miscelleaneous    '
-  Load_DefaultParams;
+    % params and projectfolder already exist provide by PE, now derive
+    % savedir from set
+    savedir = ParameterExplorer.savelocation(params,...
+        'projectfolder',projectfolder);
 end
 
+fprintf('SaveLocation: %s\n',savedir);
+
 % Setup neuron counts
-neurIdentites=[false(1,nExc) true(1,nInh)];
-nCells = nExc + nInh;
+neurIdentites=[false(1,params.nExc) true(1,params.nInh)];
+nCells = params.nExc + params.nInh;
 
 % Setup random stream for main script (different than random streams that
 % are operating to construct stimuli, connections, and neuron properties,
 % respectively)
 MainStream = RandStream.create('mrg32k3a','NumStreams',1,'seed','shuffle');
+
+% Assign param variables to main space variables that will be directly
+% called in the simulation
+dt = params.dt;
+sigma = params.dt;
 
 %% Initialize Parameter-based Simulation Vectors
 % ------------------------------------------------------------------------
@@ -49,19 +108,19 @@ MainStream = RandStream.create('mrg32k3a','NumStreams',1,'seed','shuffle');
 NP = NeuronProperties; % Encapsulated code for setting up overall neuron/synaptic vectors
     % First, we set the properties to build the the output properties
     NP.neurIdentities = neurIdentites;
-    NP.rMax0E=rMax0E; NP.rMax0I= rMax0I;
-    NP.p0E= p0E; NP.p0I=p0I;
-    NP.tausE=tausE; NP.tausI=tausI;
-    NP.tauDbar=tauDbar; NP.tauDvar=tauDvar;
-    NP.tauMbar=tauM;
-    NP.IwidthI =  IwidthI; NP.IwidthE = IwidthE;
-    NP.Ith0E =  IthE; NP.Ith0I = IthI;
+    NP.rMax0E=params.rMax0E; NP.rMax0I=params.rMax0I;
+    NP.p0E=params.p0E; NP.p0I=params.p0I;
+    NP.tausE=params.tausE; NP.tausI=params.tausI;
+    NP.tauDbar=params.tauDbar; NP.tauDvar=params.tauDvar;
+    NP.tauMbar=params.tauM;
+    NP.IwidthI =  params.IwidthI; NP.IwidthE = params.IwidthE;
+    NP.Ith0E =  params.IthE; NP.Ith0I = params.IthI;
 
     % Then, we invoke the generation method to create them
     NP = NP.generateOutputParams;
 
     % last return the gpu vectors for the simulation
-    [tauM,tauD,tauS,p0,sFrac,rMax,Iwidth,Ith] = NP.returnOutputs();
+    [tauM,tauD,tauS,p0,sFrac,rMax,Iwidth,Ith] = NP.returnOutputs(); 
     clear NP;
 
 % ------------------------------------------------------------------------
@@ -69,10 +128,10 @@ NP = NeuronProperties; % Encapsulated code for setting up overall neuron/synapti
 Connect = ConnectionProperties; % Encapsulated code for computing overall W vector
     % First, we set the properties to build the W matrix
     Connect.neurIdentities=neurIdentites;
-    Connect.Rec.EE = Wrecurrent;
-    Connect.Sigma.Rec.EE = sigmaWEE;
-    Connect.Sigma.Asym.EE = sigmaWEE;
-    Connect.Base.IE = WIEval; Connect.Sigma.IE = sigmaIE;
+    Connect.Rec.EE = params.Wrecurrent;
+    Connect.Sigma.Rec.EE = params.sigmaWEE;
+    Connect.Sigma.Asym.EE = params.sigmaWEE;
+    Connect.Base.IE = params.WIEval; Connect.Sigma.IE = params.sigmaIE;
 
     % then, we invoke the generation method to create W
     Connect = Connect.generateConnections();
@@ -86,28 +145,28 @@ Connect = ConnectionProperties; % Encapsulated code for computing overall W vect
         % The following parameters should be put into the moving parameter
         % set
         GeneralStim.neurIdentities = neurIdentites;
-        GeneralStim.dt = dt;
-        GeneralStim.nTrials = nTrials; % number of trials
-        GeneralStim.trialDuration = trialDuration; % seconds
+        GeneralStim.dt = params.dt;
+        GeneralStim.nTrials = params.nTrials; % number of trials
+        GeneralStim.trialDuration = params.trialDuration; % seconds
         GeneralStim.iFrac = 0.3;
     % (1) Setup Context Stimulus
     Context = GeneralStim;
-        Context.trialStart  = context_trialStart;
-        Context.trialStop   = context_trialEnd;
+        Context.trialStart  = params.context_trialStart;
+        Context.trialStop   = params.context_trialEnd;
         Context.nStates     = 2;
         Context=Context.generateStimuli();
         [Iapp_context, trialBin, t] = Context.returnOutputs();
     % (2) Setup Dot Stimulus
     Dots = GeneralStim;
-        Dots.trialStart     = dot_trialStart;
-        Dots.trialStop      = dot_trialEnd;
+        Dots.trialStart     = params.dot_trialStart;
+        Dots.trialStop      = params.dot_trialEnd;
         Dots.nStates        = 3;
         Dots=Dots.generateStimuli();
         [Iapp_dots] = Dots.returnOutputs();
     % (3) Setup Color Stimulus
     Color = GeneralStim;
-        Color.trialStart    = color_trialStart;
-        Color.trialStop     = color_trialEnd;
+        Color.trialStart    = params.color_trialStart;
+        Color.trialStop     = params.color_trialEnd;
         Color.nStates        = 3;
         Color=Color.generateStimuli();
         [Iapp_color] = Color.returnOutputs();
@@ -134,8 +193,8 @@ if useGPU
         D=gpuArray(D);
         S=gpuArray(S);
 end
-for trial = 1:nTrials
-
+for trial = 1:params.nTrials
+    
      if trialReset
         r(1+Nt*(stim-1),:) = 0.0;                            % Initializing if resetting to different stimuli
         D(1+Nt*(stim-1),:) = 1.0;

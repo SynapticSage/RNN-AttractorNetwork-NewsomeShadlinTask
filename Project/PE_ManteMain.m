@@ -29,7 +29,7 @@ projectfolder   ='~/Data/Miller/FindNetTone';
 %% Variables
 % Set parameters -- the space over which all value combinations explored
 param = struct( ...
-        
+         
 	);
 
 % Set constants -- this variable space remains the same for each script run

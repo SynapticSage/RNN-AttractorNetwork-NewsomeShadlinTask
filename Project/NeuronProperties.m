@@ -133,7 +133,7 @@ classdef NeuronProperties
                 tauD=gpuArray(single(this.tauD)); 
                 tauS=gpuArray(single(this.tauS));
                 p0=gpuArray(single(this.p0)); 
-                sFrac=gpuArray(single(this.sFrace));
+                sFrac=gpuArray(single(this.sFrac));
                 rMax=gpuArray(single(this.rMax));
                 Iwidth=gpuArray(single(this.Iwidth));
                 Ith=gpuArray(single(this.Ith));

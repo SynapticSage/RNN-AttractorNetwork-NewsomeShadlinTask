@@ -4,6 +4,7 @@
 %% General Flags
 useGPU = false;
 trialReset = false;
+figureson = true;
 
 %% Pre-processing
 if useGPU
@@ -23,8 +24,10 @@ end
 if ~exist('params','var') || ~isstruct(params)
    params = struct( ...
            ... Model Resolution/Precision
-           'dt',    2e-3, ... Model bin size
+           'dt',    2e-4, ... Model bin size
            'bin_t', 5e-2, ... How to bin post hoc for analysis
+           ... Model noise
+           'sigma', 0.1,    ...
        ... ---TASK PARAMETERS---
            ... General Trial Controls
            'nTrials',       5, ...
@@ -36,13 +39,13 @@ if ~exist('params','var') || ~isstruct(params)
            'context_trialEnd',      1.1, ...
            ... Color Motion Stimulus
            'color_trialStart',      0.35, ...
-           'color_trialEnd',      1.1, ...
+           'color_trialEnd',        1.1, ...
            ... Dot Color Stimulus
            'dot_trialStart',        0.35, ...
-           'dot_trialEnd',      1.1, ...
+           'dot_trialEnd',          1.1, ...
        ... ---NEURAL NETWORK PARAMETERS---
            ... Number of neurons of each type
-           'nInh',      5, ...
+           'nInh',      1, ...
            'nExc',      40, ...
            ... Neural Properties
            'rMax0E',    100, ...
@@ -77,6 +80,16 @@ end
 neurIdentites=[false(1,params.nExc) true(1,params.nInh)];
 nCells = params.nExc + params.nInh;
 
+% Setup random stream for main script (different than random streams that
+% are operating to construct stimuli, connections, and neuron properties,
+% respectively)
+MainStream = RandStream.create('mrg32k3a','NumStreams',1,'seed','shuffle');
+
+% Assign param variables to main space variables that will be directly
+% called in the simulation
+dt = params.dt;
+sigma = params.dt;
+
 %% Initialize Parameter-based Simulation Vectors
 % ------------------------------------------------------------------------
 % NEURAL VECTORS
@@ -95,7 +108,8 @@ NP = NeuronProperties; % Encapsulated code for setting up overall neuron/synapti
     NP = NP.generateOutputParams;
 
     % last return the gpu vectors for the simulation
-    [tauM,tauD,tauS,p0,rMax,Iwidth,Ith] = NP.returnOutputs(); clear NP;
+    [tauM,tauD,tauS,p0,sFrac,rMax,Iwidth,Ith] = NP.returnOutputs(); 
+    clear NP;
 
 % ------------------------------------------------------------------------
 % CONECTION VECTORS
@@ -158,46 +172,45 @@ Connect = ConnectionProperties; % Encapsulated code for computing overall W vect
 % sdresponse1     = zeros(Nstims,nCells);                     % Std of responses after averaging across trials
 
 %% Execute Simulation
-for trial = 1:params.nTrials
 
-    r = zeros(length(t),nCells);    % Firing rate for each cell at all time points
-    D = zeros(length(t),nCells);    % Depression variable for each cell at all time points
-    S = zeros(length(t),nCells);    % Synaptic gating variable for each cell at all time points
-
-    if useGPU
+r = zeros(length(t),nCells);    % Firing rate for each cell at all time points
+D = zeros(length(t),nCells);    % Depression variable for each cell at all time points
+S = zeros(length(t),nCells);    % Synaptic gating variable for each cell at all time points
+if useGPU
         r=gpuArray(r);
         D=gpuArray(D);
         S=gpuArray(S);
+end
+for trial = 1:params.nTrials
+    
+     if trialReset
+        r(1+Nt*(stim-1),:) = 0.0;                            % Initializing if resetting to different stimuli
+        D(1+Nt*(stim-1),:) = 1.0;
+        S(1+Nt*(stim-1),:) = 0.0;
+%     else
+%         r(1+Nt*(stim-1),:) = r(Nt*(stim),:) ;               % Do not initialize if continuing to count stimuli
+%         D(1+Nt*(stim-1),:) = D(Nt*(stim),:);
+%         S(1+Nt*(stim-1),:) = S(Nt*(stim),:);
     end
 
-         if trialReset
-            r(1+Nt*(stim-1),:) = 0.0;                            % Initializing if resetting to different stimuli
-            D(1+Nt*(stim-1),:) = 1.0;
-            S(1+Nt*(stim-1),:) = 0.0;
-%         else
-%             r(1+Nt*(stim-1),:) = r(Nt*(stim),:) ;               % Do not initialize if continuing to count stimuli
-%             D(1+Nt*(stim-1),:) = D(Nt*(stim),:);
-%             S(1+Nt*(stim-1),:) = S(Nt*(stim),:);
-        end
-
     %% Step Through Times
-    startInd   = trialBin(trial,1);
+    startInd   = max(trialBin(trial,1),2);
     stopInd    = trialBin(trial,2);
     for i = startInd:stopInd
 
         I = S(i-1,:)*W+Iapp(i,:) ...        % I depends on feedback (W*S) and applied current
-            + sigma*randn(s1,1)/sqrt(dt);   % and additional noise
+            + sigma*randn(MainStream,1)/sqrt(dt);   % and additional noise
 
-        rinf = rmax./(1.+exp(-(I-Ith)./Iwidth));        % Firing rate curve gives the steady state r
-        r(i,:) = rinf + (r(i-1,:)-rinf)*exp(-dt/tauM);  % Update r from the previous timestep
+        rinf = rMax./(1.+exp(-(I-Ith)./Iwidth));        % Firing rate curve gives the steady state r
+        r(i,:) = rinf + (r(i-1,:)-rinf).*exp(-dt./tauM);  % Update r from the previous timestep
 
         Dinf = 1./(1.+p0.*r(i-1,:).*tauD);                  % Steady state value of D for Poisson spiking
         D(i,:) = Dinf + ( D(i-1,:)-Dinf).*...
             exp(-dt*(p0.*r(i-1,:)+1./tauD));  % Update with adjusted time constant
 
-        Sinf = sfrac*p0.*r(i,:).*D(i,:).*tauS./(1.0+sfrac*p0.*r(i,:).*D(i,:).*taus); % Steady state value of synaptic gating vatiable assuming vesicle release at a rate p0*r*D
-        S(i,:) = Sinf + ( S(i-1,:)-Sinf).*...
-            exp(-dt*(sfrac*p0.*r(i,:).*D(i,:)+1./taus)); % update S with adjusted tau
+        Sinf = sFrac.*p0.*r(i,:).*D(i,:).*tauS./(1.0+sFrac.*p0.*r(i,:).*D(i,:).*tauS); % Steady state value of synaptic gating vatiable assuming vesicle release at a rate p0*r*D
+        S(i,:) = Sinf + ( S(i-1,:)-Sinf) .* ...
+            exp(-dt*(sFrac.*p0.*r(i,:).*D(i,:)+1./tauS)); % update S with adjusted tau
     end
 
     %% Add to post-trial statistics
@@ -219,13 +232,13 @@ for trial = 1:params.nTrials
     %% Post-trial plotting
     if figureson
         figure(1)
-        imagesc(r(:,1:end-1)')
+        imagesc(t,1:nCells,r(:,1:end-1)');
         colorbar
         drawnow
     end
 
-    meanrate = meanrate + r;
-    stdrate = stdrate + r.*r;
+%     meanrate = meanrate + r;
+%     stdrate = stdrate + r.*r;
 
 end
 

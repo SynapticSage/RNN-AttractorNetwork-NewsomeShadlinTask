@@ -126,12 +126,14 @@ classdef NeuronProperties
             
         end
         % ---------------------------------------------------------------
-        function [tauM,tauD,tauS,p0,rMax,Iwidth,Ith] = returnOutputs(this)
+        function [tauM,tauD,tauS,p0,sFrac,rMax,Iwidth,Ith] = ...
+                returnOutputs(this)
             if this.useGPU
                 tauM=gpuArray(single(this.tauM)); 
                 tauD=gpuArray(single(this.tauD)); 
                 tauS=gpuArray(single(this.tauS));
                 p0=gpuArray(single(this.p0)); 
+                sFrac=gpuArray(single(this.sFrace));
                 rMax=gpuArray(single(this.rMax));
                 Iwidth=gpuArray(single(this.Iwidth));
                 Ith=gpuArray(single(this.Ith));
@@ -140,6 +142,7 @@ classdef NeuronProperties
                 tauD=this.tauD; 
                 tauS=this.tauS;
                 p0=this.p0; 
+                sFrac=this.sFrac;
                 rMax=this.rMax;
                 Iwidth=this.Iwidth;
                 Ith=this.Ith;

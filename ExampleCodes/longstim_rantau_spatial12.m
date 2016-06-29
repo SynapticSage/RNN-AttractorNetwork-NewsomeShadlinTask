@@ -204,7 +204,7 @@ for cell1 = 1:NE
     WEE(cell1,cell1) = Wrecurrent + sigmaWEE*(rand(s2,1)-0.5);    % This is the strength of self-connections and replaces the other value
 end
 
-if ( weight_normalization )
+if weight_normalization
     WEE_mean = mean(mean(WEE));
     for cell1 = 1:NE
         WEE(:,cell1) = WEE(:,cell1)*WEE_mean/mean(WEE(:,cell1));

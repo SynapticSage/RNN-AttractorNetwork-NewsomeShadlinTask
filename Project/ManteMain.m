@@ -4,7 +4,7 @@
 %% General Flags
 
 % ParameterExplorer controlled mode
-PE_mode = false;
+PE_mode = true;
 
 % Whether to use GPU
 useGPU = false;
@@ -21,14 +21,7 @@ end
 
 %% General Paramters
 % The lines below this comment provide an optional entry point for my
-% ParameterExplorer class to take over execution of the script, else, it
-% simply runs the script with the following default parameters. For reasons
-% why using this parameter explorer is smart, for one, it automatically
-% stores data in a folder system structured like the parameter space
-% explored. Second, it is able to run many instances of this script in
-% parallel, as many as the processor can support. Third, it has an ability
-% to stop/start in the middle of paramter exploration (checkpoints,
-% automatically).
+% ParameterExplorer class.
 if ~(exist('params','var') && PE_mode)
    params = struct( ...
            ... Model Resolution/Precision
@@ -54,7 +47,7 @@ if ~(exist('params','var') && PE_mode)
        ... ---NEURAL NETWORK PARAMETERS---
            ... Number of neurons of each type
            'nInh',      1, ...
-           'nExc',      40, ...
+           'nExc',      200, ...
            ... Neural Properties
            'rMax0E',    100, ...
            'rMax0I',    200, ...
@@ -72,18 +65,16 @@ if ~(exist('params','var') && PE_mode)
            'IwidthI',   5, ...
            'IthI',      20, ...
            ... Connection Properties
-           'Wrecurrent',    200, ...
-           'sigmaWEE',      0, ...
-           'sigmaWasym',    0, ...
-           'WIEval',        -320, ...
-           'sigmaIE',       0 ...
+           'WEErecurrent_factor',      200, ...
+           'WEEasym_factor',    35,  ...
+           'WIE_factor',        -320, ...
+           'WEI_factor',        320, ...
+           'sigmaWEErec',       0, ...
+           'sigmaWEEasym',      0, ...
+           'sigmaIE',           0, ...
+           'pEE',               0.0350 ...
        );
    savedir = '~/Data/Miller/Untitled';
-else
-    % params and projectfolder already exist provide by PE, now derive
-    % savedir from set
-    savedir = ParameterExplorer.savelocation(params,...
-        'projectfolder',projectfolder);
 end
 
 fprintf('SaveLocation: %s\n',savedir);
@@ -108,33 +99,40 @@ sigma = params.dt;
 NP = NeuronProperties; % Encapsulated code for setting up overall neuron/synaptic vectors
     % First, we set the properties to build the the output properties
     NP.neurIdentities = neurIdentites;
-    NP.rMax0E=params.rMax0E; NP.rMax0I=params.rMax0I;
-    NP.p0E=params.p0E; NP.p0I=params.p0I;
-    NP.tausE=params.tausE; NP.tausI=params.tausI;
-    NP.tauDbar=params.tauDbar; NP.tauDvar=params.tauDvar;
+    NP.rMax0E=params.rMax0E;        NP.rMax0I=params.rMax0I;
+    NP.p0E=params.p0E;              NP.p0I=params.p0I;
+    NP.tausE=params.tausE;          NP.tausI=params.tausI;
+    NP.tauDbar=params.tauDbar;      NP.tauDvar=params.tauDvar;
     NP.tauMbar=params.tauM;
-    NP.IwidthI =  params.IwidthI; NP.IwidthE = params.IwidthE;
-    NP.Ith0E =  params.IthE; NP.Ith0I = params.IthI;
+    NP.IwidthI =  params.IwidthI;   NP.IwidthE = params.IwidthE;
+    NP.Ith0E =  params.IthE;        NP.Ith0I = params.IthI;
 
     % Then, we invoke the generation method to create them
     NP = NP.generateOutputParams;
-
+   
     % last return the gpu vectors for the simulation
     [tauM,tauD,tauS,p0,sFrac,rMax,Iwidth,Ith] = NP.returnOutputs(); 
     clear NP;
 
 % ------------------------------------------------------------------------
 % CONECTION VECTORS
-Connect = ConnectionProperties; % Encapsulated code for computing overall W vector
+
+% Setup W matrix constructor
+Connect = ConnectionProperties; % Creates W vector
     % First, we set the properties to build the W matrix
-    Connect.neurIdentities=neurIdentites;
-    Connect.Rec.EE = params.Wrecurrent;
-    Connect.Sigma.Rec.EE = params.sigmaWEE;
-    Connect.Sigma.Asym.EE = params.sigmaWEE;
-    Connect.Base.IE = params.WIEval; Connect.Sigma.IE = params.sigmaIE;
+    Connect.neurIdentities  = neurIdentites;
+    Connect.Rec.EE          = params.WEErecurrent_factor;   
+    Connect.Base.EE         = params.WEEasym_factor;
+    Connect.Base.IE         = params.WIE_factor;           
+    Connect.Base.EI         = params.WEI_factor;
+    Connect.Sigma.Rec.EE    = params.sigmaWEErec; 
+    Connect.Sigma.EE        = params.sigmaWEEasym;
+    Connect.Sigma.IE        = params.sigmaIE;
+    Connect.P.EE            = params.pEE;
 
     % then, we invoke the generation method to create W
     Connect = Connect.generateConnections();
+    Connect.visualize(savedir);
 
     % last return the gpu vectors for the simulation
     [W] = Connect.returnOutputs(); clear Connect;
@@ -167,7 +165,7 @@ Connect = ConnectionProperties; % Encapsulated code for computing overall W vect
     Color = GeneralStim;
         Color.trialStart    = params.color_trialStart;
         Color.trialStop     = params.color_trialEnd;
-        Color.nStates        = 3;
+        Color.nStates       = 3;
         Color=Color.generateStimuli();
         [Iapp_color] = Color.returnOutputs();
     clear Context Dots Color GeneralStim;
@@ -243,15 +241,18 @@ for trial = 1:params.nTrials
 
     %% Post-trial plotting
     if figureson
-        figure(1)
+        f=figure(1)
         imagesc(t,1:nCells,r(:,1:end-1)');
         colorbar
         drawnow
+        saveThis(f,savedir,sprintf('ActivityScaled-%s',trial),...
+            'png','Activity');
     end
 
 %     meanrate = meanrate + r;
 %     stdrate = stdrate + r.*r;
 
 end
+saveThis(f,savedir,sprintf('ActivityScaled'),'png');
 
 %% Post-simulation Analysis

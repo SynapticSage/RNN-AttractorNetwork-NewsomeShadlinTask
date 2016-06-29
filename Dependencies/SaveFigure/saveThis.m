@@ -10,5 +10,5 @@ function saveThis(handle,savedir,filename,type,nestFolder)
     warning off; mkdir(savestr); warning on;
     savestr=fullfile(savestr,filename);
 
-    saveFigureFull(handle,savestr);
+    warning off; saveFigureFull(handle,savestr); warning on;
 end

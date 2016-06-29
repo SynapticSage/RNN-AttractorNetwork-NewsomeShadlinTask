@@ -98,6 +98,7 @@ classdef InputStimulus_Simple
 
             %% Output
             this.Iapp = stimulus;
+            this.stimulus = stimulus(:,find(whoStimulate, 1, 'first'));
 
         end
         % ---------------------------------------------------------------
@@ -135,6 +136,9 @@ classdef InputStimulus_Simple
         % General applied current due to the stimulus to the n units in the
         % simulation.
         Iapp;
+
+        % Stimulus record
+        stimulus;
     end
 
 

@@ -34,7 +34,7 @@ figures.showStimuli = true;
 %% General Paramters
 % The lines below this comment provide an optional entry point for my
 % ParameterExplorer class.
-if ~(exist('params','var') && PE_mode)
+if ~(exist('params','var') || PE_mode)
    params = struct( ...
            ... Model Resolution/Precision
            'dt',    2e-4, ... Model bin size

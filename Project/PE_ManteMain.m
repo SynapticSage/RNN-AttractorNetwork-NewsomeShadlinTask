@@ -97,14 +97,14 @@ consts = struct( ...
            'sigmaIE',                  0 ...
 ...           'pEE',                      0.0350 ...
        );
-%% Create Explorer, Set Options`
+%% Create Explorer, Set Options
 
 % Run the parameter explorer for with reward versus not reward conditions!
 Explorer = ParameterExplorer(scriptname,param,...
     'projectfolder',projectfolder,'consts',consts);
 % Set options to run with, one specifying that, yes, we will run in
 % parallel; the other, that jobs ought be deleted after they're finished
-Explorer.useparallel    = false;
+Explorer.useparallel    = true;
 Explorer.deletejobs     = true;
 Explorer.const2parm     = true;
 

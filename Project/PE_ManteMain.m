@@ -104,7 +104,7 @@ Explorer = ParameterExplorer(scriptname,param,...
     'projectfolder',projectfolder,'consts',consts);
 % Set options to run with, one specifying that, yes, we will run in
 % parallel; the other, that jobs ought be deleted after they're finished
-Explorer.useparallel    = false;
+Explorer.useparallel    = true;
 Explorer.deletejobs     = true;
 Explorer.const2parm     = true;
 % Set session ID - if not selected, PE will pick one at random

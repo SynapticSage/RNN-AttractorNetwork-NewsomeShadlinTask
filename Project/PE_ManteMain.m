@@ -108,7 +108,7 @@ Explorer.useparallel    = true;
 Explorer.deletejobs     = true;
 Explorer.const2parm     = true;
 % Set session ID - if not selected, PE will pick one at random
-Explorer.setSessionID('1stRun');
+Explorer = Explorer.setSessionID('1stRun');
 
 %% RUN!
 Explorer.run();

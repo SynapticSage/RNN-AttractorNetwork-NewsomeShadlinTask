@@ -74,39 +74,46 @@ classdef InputStimulus_Simple
             % respect to trial durations. the moment at which the modulus
             % remainder drops.
             diffMod = diff(mod(times,this.trialDuration));
-            indStart = find(diffMod < 0); indStart = [1, indStart];
+            indStart = find(diffMod < 0); indStart = [1, indStart(1:end-1)];
             indStop = [indStart(2:end)-1 numel(times)];
             assert(numel(indStart) == numel(indStop));
 
             % now for each indStart/indEnd pair, need to randomly assign a
             % strength
+            trialval = zeros(numel(indStart),1); cnt=0;
             for i = [indStart;indStop]
+                
+                cnt=cnt+1;
 
                 % create a random stimulus strength to present the stimulus
                 % at!
-                stimStrength = ceil((this.nStates)*rand(r,1,1));
+                trialval(cnt) = ceil((this.nStates)*rand(r,1,1));
                 if this.positiveAndNegative
                     stimSign = round(rand(1))*(-1);
-                    if stimSign, stimStrength = stimSign * stimStrength; end; %#ok<BDLGI>
+                    if stimSign, trialval(cnt) = stimSign * trialval(cnt); end; %#ok<BDLGI>
                 end
                 stimulus(i(1):i(2),whoStimulate) = ...
-                  stimulus(i(1):i(2),whoStimulate) * stimStrength;
+                  stimulus(i(1):i(2),whoStimulate) * trialval(cnt);
 
                 % store the start and stop indices of a trial
                 this.trialBin = [this.trialBin; i(1) i(2)];
             end
 
             %% Output
-            this.Iapp = stimulus;
-            this.stimulus = stimulus(:,find(whoStimulate, 1, 'first'));
+            this.Iapp = stimulus; % Value of current for each cell
+            this.trialval = trialval; % Value of the stimulus for the trial (Useful later for the multiregresion)
+            this.stimulus = ...
+                stimulus(:,find(whoStimulate, 1, 'first')); % Value of stimulus for a cell receiving the input
 
         end
         % ---------------------------------------------------------------
-        function [Iapp, trialBin, times] = returnOutputs(this)
+        function [Iapp, trialval, stimulus, trialBin, times] = returnOutputs(this)
 
             try
                 if this.useGPU
                     Iapp = gpuArray(single(this.Iapp));
+                    trialval=this.trialval;
+                    stimulus=this.stimulus;
                     trialBin = this.trialBin;
                     times = this.times;
                 end
@@ -118,6 +125,8 @@ classdef InputStimulus_Simple
             if ~this.useGPU
                 Iapp = this.Iapp;
                 trialBin = this.trialBin;
+                trialval=this.trialval;
+                stimulus=this.stimulus;
                 times = this.times;
             end
         end
@@ -137,8 +146,11 @@ classdef InputStimulus_Simple
         % simulation.
         Iapp;
 
-        % Stimulus record
+        % Stimulus record for a cell receiving the input
         stimulus;
+
+        % Stimulus value on a trial by trial basis, not in time, but by trial
+        trialval;
     end
 
 

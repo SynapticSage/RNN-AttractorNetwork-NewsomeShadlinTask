@@ -21,7 +21,7 @@ if nargin > 0
         
         signal = mandArg;
         
-    elseif narargin == 2
+    elseif nargin == 2
         
         taxis = mandArg;
         signal = varargin{1};
@@ -42,7 +42,7 @@ if nargin > 0
             switch varargin{v}
                 case 'axis',        axs = varargin{v+1};
                 case 'transp',      transp = varargin{v+1};
-                case 'colorspec',   colorspec = varargin{v+1};
+                case 'color',   colorspec = varargin{v+1};
                 otherwise, error('Unrecognized input!');
             end
         end

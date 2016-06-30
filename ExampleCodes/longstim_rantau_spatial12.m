@@ -10,11 +10,11 @@ figureson = true;              % set to 1 to plot a lot more figures
 % WEIGHTS
 weight_normalization = true;
 % PRIMARY STIMULUS FLAGS
-multistim = false;              % Set to 1 if different stimulus types are varied
-dtime = true;                   % Set to one if stimulus duration varies
+multistim   = false;           % Set to 1 if different stimulus types are varied
+dtime       = true;            % Set to one if stimulus duration varies
 % TYPE OF RUN FLAG
-test_on = false;
-trial_reset = true;             % Set to zero to prevent "counting" across trials
+test_on     = false;
+trial_reset = true;            % Set to zero to prevent "counting" across trials
 
 %% Randomness
 % 2 random streams, with s2 used for cell and network structure while the

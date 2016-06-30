@@ -3,7 +3,7 @@
 
 %% Pre-processing and Basic Definitions
 
-clear; close all;
+close all;
 
 % Whether to use GPU
 useGPU = false;
@@ -164,7 +164,7 @@ Connect = ConnectionProperties; % Creates W vector
         GeneralStim.dt = params.dt;
         GeneralStim.nTrials = params.nTrials; % number of trials
         GeneralStim.trialDuration = params.trialDuration; % seconds
-        GeneralStim.iFrac = 0.3;
+        GeneralStim.iFrac = 0.3; clear Iapp;
     % (1) Setup Context Stimulus
     Context = GeneralStim;
         Context.trialStart  = params.context_trialStart;

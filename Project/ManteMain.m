@@ -10,6 +10,12 @@ useGPU = false;
 if useGPU
     reset(gpuDevice(1)); % Resets gpu memory, if anything is in it.
 end
+% ParameterExplorer controlled mode
+PE_mode = true;
+if PE_mode
+    % Has to be set, because parallel matlab workers hate docked windows
+    set(0,'DefaultFigureWindowStyle','normal');
+end
 
 % shortcut lambda functions
 normalize   = @(x) x./mean(x);
@@ -18,12 +24,11 @@ dsamp       = @(x) downsample(x,10);
 
 %% General Flags
 
-% ParameterExplorer controlled mode
-PE_mode = false;
 % Whether to reset network after each trial
 trialReset = false;
 % Turn on additional plotting
-figures.on = true;
+figures.on          = true;
+figures.save        = true;
 figures.showStimuli = true;
 
 %% General Paramters
@@ -239,7 +244,7 @@ for tr = 1:params.nTrials
     %% Post-trial plotting
     if figures.on
         
-        figure(1)
+        f=figure(1);
         figures.nSubplot = 2;
         
         subplot(figures.nSubplot,1,figures.nSubplot-1);
@@ -248,15 +253,21 @@ for tr = 1:params.nTrials
         subplot(figures.nSubplot,1,figures.nSubplot);
         imagesc(t,nCells-params.nInh+1:nCells,r(:,end-params.nInh+1:end)'); axis tight;
         colorbar; title('Inh');
-        
+
         drawnow;
+        
+        if figures.save
+            filename=sprintf('Activity_BeforeTrial_%d',tr);
+            saveThis(f,savedir,filename,'png','TrialRecord');
+            saveThis(f,savedir,filename,'fig','TrialRecord');
+        end
     end
 end
 
 %% Post-trial plotting
 if figures.on
     
-    figure(1)
+    f=figure(1);
     figures.nSubplot = 2;
 
     if figures.showStimuli
@@ -287,6 +298,12 @@ if figures.on
     imagesc(t,nCells-params.nInh+1:nCells,r(:,end-params.nInh+1:end)'); axis tight;
     colorbar; title('Inh');
     
+    if figures.save
+        filename='ActivityLog';
+        saveThis(f,savedir,filename,'png');
+        saveThis(f,savedir,filename,'fig');
+    end
+    
 end
 
 %% Post-simulation statistics
@@ -307,3 +324,8 @@ fprintf('\n--------\n');
 %
 
 %% Post-simulation Analysis:
+
+%% Final Save
+
+clearvars -except r trials Iapp;
+save('Record');

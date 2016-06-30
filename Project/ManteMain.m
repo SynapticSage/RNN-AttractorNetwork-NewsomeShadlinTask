@@ -88,11 +88,6 @@ if ~(exist('params','var') || PE_mode)
            'pEE',               0.0350 ...
        );
    savedir = '~/Data/Miller/Untitled';
-else
-    % params and projectfolder already exist provide by PE, now derive
-    % savedir from set
-    savedir = ParameterExplorer.savelocation(params,...
-        'projectfolder',projectfolder);
 end
 
 fprintf('SaveLocation: %s\n',savedir);

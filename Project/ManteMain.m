@@ -11,7 +11,7 @@ if useGPU
     reset(gpuDevice(1)); % Resets gpu memory, if anything is in it.
 end
 % ParameterExplorer controlled mode
-PE_mode = true;
+PE_mode = false;
 if PE_mode
     % Has to be set, because parallel matlab workers hate docked windows
     set(0,'DefaultFigureWindowStyle','normal');
@@ -40,25 +40,25 @@ if ~(exist('params','var') || PE_mode)
            'dt',    2e-4, ... Model bin size
            'bin_t', 5e-2, ... How to bin post hoc for analysis
            ... Model noise
-           'sigma', 0.1,    ...
+           'sigma', 0.3,    ...
        ... ---TASK PARAMETERS---
            ... General Trial Controls
            'nTrials',       10, ...
-           'trialDuration', 3, ...
+           'trialDuration', 2,  ... 3, ...
            ... General Stimulus
            'iFrac',         0.33, ...   Randomly select a third of the population for a stimulus to receive
            ... Context Stimulus
-           'context_trialStart',    0.3, ...
-           'context_trialEnd',      1.1, ...
+           'context_trialStart',    0.1, ...
+           'context_trialEnd',      1.4, ...
            ... Color Motion Stimulus
-           'color_trialStart',      0.35, ...
-           'color_trialEnd',        1.1, ...
+           'color_trialStart',      0.6, ... 0.35, ...
+           'color_trialEnd',        1.6,    ... 1.1, ...
            ... Dot Color Stimulus
-           'dot_trialStart',        0.35, ...
-           'dot_trialEnd',          1.1, ...
+           'dot_trialStart',        0.6, ... 0.35, ...
+           'dot_trialEnd',          1.6, ... 1.1, ...
        ... ---NEURAL NETWORK PARAMETERS---
            ... Number of neurons of each type
-           'nInh',      25, ...
+           'nInh',      1, ...
            'nExc',      50, ...
            ... Neural Properties
            'rMax0E',    100, ...
@@ -72,20 +72,20 @@ if ~(exist('params','var') || PE_mode)
            'tauDvar',   0,     ...
            'tauM',      0.010, ...
            ... Input Properties
-           'Imax',      3, ...
+           'Imax',      5, ...
            'IwidthE',   3, ...
            'IthE',      18, ...
            'IwidthI',   5, ...
            'IthI',      20, ...
            ... Connection Properties
-           'WEErecurrent_factor',      210, ...
-           'WEEasym_factor',    35,  ...
-           'WIE_factor',        -320, ...
-           'WEI_factor',        320, ...
-           'sigmaWEErec',       0, ...
-           'sigmaWEEasym',      0, ...
-           'sigmaIE',           0, ...
-           'pEE',               0.0350 ...
+           'WEErecurrent_factor',       700, ...
+           'WEEasym_factor',            300,  ...
+           'WIE_factor',                -320, ...
+           'WEI_factor',                320, ...
+           'sigmaWEErec',               0 , ...
+           'sigmaWEEasym',              0, ...
+           'sigmaIE',                   0, ...
+           'pEE',                       0.0350 ...
        );
    savedir = '~/Data/Miller/Untitled';
 end
@@ -202,19 +202,18 @@ if useGPU
 end
 for tr = 1:params.nTrials
 
-     if trialReset
-        r(1+Nt*(stim-1),:) = 0.0;                            % Initializing if resetting to different stimuli
-        D(1+Nt*(stim-1),:) = 1.0;
-        S(1+Nt*(stim-1),:) = 0.0;
-%     else
-%         r(1+Nt*(stim-1),:) = r(Nt*(stim),:) ;               % Do not initialize if continuing to count stimuli
-%         D(1+Nt*(stim-1),:) = D(Nt*(stim),:);
-%         S(1+Nt*(stim-1),:) = S(Nt*(stim),:);
+    % Obtain start and stop indices of trial
+    startInd   = max(trials.bin(tr,1),2);
+    stopInd    = trials.bin(tr,2);
+
+    % Reset, if requested in flag options
+    if trialReset
+        r(startInd,:) = 0.0;                            % Initializing if resetting to different stimuli
+        D(startInd,:) = 1.0;
+        S(startInd,:) = 0.0;
     end
 
     %% Step Through Times
-    startInd   = max(trials.bin(tr,1),2);
-    stopInd    = trials.bin(tr,2);
     for i = startInd:stopInd
 
         I = S(i-1,:)*W+Iapp(i,:) ...        % I depends on feedback (W*S) and applied current
@@ -233,15 +232,15 @@ for tr = 1:params.nTrials
     end
 
     %% Calculate post-trial measures
-    
-    
+
+
 
     %% Post-trial plotting
     if figures.on
-        
+
         f=figure(1);
         figures.nSubplot = 2;
-        
+
         subplot(figures.nSubplot,1,figures.nSubplot-1);
         imagesc(t,1:nCells-params.nInh,r(:,1:end-params.nInh)'); axis tight;
         colorbar; title('Exc');
@@ -250,7 +249,7 @@ for tr = 1:params.nTrials
         colorbar; title('Inh');
 
         drawnow;
-        
+
         if figures.save
             filename=sprintf('Activity_BeforeTrial_%d',tr);
             saveThis(f,savedir,filename,'png','TrialRecord');
@@ -261,29 +260,29 @@ end
 
 %% Post-trial plotting
 if figures.on
-    
+
     f=figure(1);
     figures.nSubplot = 2;
 
     if figures.showStimuli
         figures.nSubplot=figures.nSubplot+1;
         subplot(figures.nSubplot,1,1); hold on;
-        
+
         p1=plot(dsamp(t),dsamp(trials.raw.context),'linewidth',2);
         p2=plot(dsamp(t),dsamp(trials.raw.dots),'linewidth',2);
         p3=plot(dsamp(t),dsamp(trials.raw.color),'linewidth',2);
-        
+
         axis tight;
-        
+
         plot_digital(dsamp(t),dsamp(trials.raw.context),...
             'color',get(p1,'color'));
         plot_digital(dsamp(t),dsamp(trials.raw.dots),...
             'color',get(p2,'color'));
         plot_digital(dsamp(t),dsamp(trials.raw.color),...
             'color',get(p3,'color'));
-        
+
         legend([p1 p2 p3],'Context','Dots','Color');
-        
+
     end
 
     subplot(figures.nSubplot,1,figures.nSubplot-1);
@@ -292,13 +291,13 @@ if figures.on
     subplot(figures.nSubplot,1,figures.nSubplot);
     imagesc(t,nCells-params.nInh+1:nCells,r(:,end-params.nInh+1:end)'); axis tight;
     colorbar; title('Inh');
-    
+
     if figures.save
         filename='ActivityLog';
         saveThis(f,savedir,filename,'png');
 %         saveThis(f,savedir,filename,'fig');
     end
-    
+
 end
 
 %% Post-simulation statistics

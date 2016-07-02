@@ -55,7 +55,8 @@ classdef InputStimulus_Simple
             whoStimulate = (rand(r,size(this.neurIdentities))- this.iFrac) ...
                 < 0;
             if ~this.stimulateInhibitoryCells
-                whoStimulate = whoStimulate .* (this.neurIdentities == 0)
+                whoStimulate ...
+                    = logical(whoStimulate .* (this.neurIdentities == 0));
             end
 
             % Bin up time

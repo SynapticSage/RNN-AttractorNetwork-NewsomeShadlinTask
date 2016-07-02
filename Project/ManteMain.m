@@ -254,7 +254,7 @@ for tr = 1:params.nTrials
         if figures.save
             filename=sprintf('Activity_BeforeTrial_%d',tr);
             saveThis(f,savedir,filename,'png','TrialRecord');
-            saveThis(f,savedir,filename,'fig','TrialRecord');
+%             saveThis(f,savedir,filename,'fig','TrialRecord');
         end
     end
 end
@@ -296,7 +296,7 @@ if figures.on
     if figures.save
         filename='ActivityLog';
         saveThis(f,savedir,filename,'png');
-        saveThis(f,savedir,filename,'fig');
+%         saveThis(f,savedir,filename,'fig');
     end
     
 end

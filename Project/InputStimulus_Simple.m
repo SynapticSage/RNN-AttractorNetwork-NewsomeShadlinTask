@@ -14,7 +14,7 @@ classdef InputStimulus_Simple
 
         % General things that the stimulus has to have acces to to
         % calculate inputs wrt neurons and model time
-        neurIdentities; % Universal identity bector that labels how many neurons of what types, and in which locations in the vector
+        neurIdentities; % Universal identity vector that labels how many neurons of what types, and in which locations in the vector
         dt;
 
         % Control of trials
@@ -27,6 +27,7 @@ classdef InputStimulus_Simple
 
         % Hetergeneity, fraction of neurons getting input
         iFrac=1; % Fraction of neurons receiving stimulus
+        stimulateInhibitoryCells=false;
 
         % Number of states stimulus can take, once per trial
         nStates=1;      % number of states
@@ -53,6 +54,9 @@ classdef InputStimulus_Simple
             % Determine the fraction of stimuli that will receive input
             whoStimulate = (rand(r,size(this.neurIdentities))- this.iFrac) ...
                 < 0;
+            if ~this.stimulateInhibitoryCells
+                whoStimulate = whoStimulate .* (this.neurIdentities == 0)
+            end
 
             % Bin up time
             times = 0:this.dt:this.trialDuration*this.nTrials; %#ok<*PROP,*PROPLC>
@@ -82,7 +86,7 @@ classdef InputStimulus_Simple
             % strength
             trialval = zeros(numel(indStart),1); cnt=0;
             for i = [indStart;indStop]
-                
+
                 cnt=cnt+1;
 
                 % create a random stimulus strength to present the stimulus

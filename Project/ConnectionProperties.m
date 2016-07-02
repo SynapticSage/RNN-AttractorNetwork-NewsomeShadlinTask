@@ -87,17 +87,15 @@ classdef ConnectionProperties
 
             % Check that inputted settings look fine
             this.checkTypes();
-            % Setup shortcut alias
-            t=this;
 
             % Create random stream
             r = RandStream.create('mrg32k3a',...
                 'NumStreams',1,'Seed','shuffle');
 
             % Get indices of the exitatory and inhibitory cells
-            this.exc         = t.neurIdentities == 0;
-            this.inh         = t.neurIdentities == 1;
-            nNeurons         = numel(t.neurIdentities);
+            this.exc         = this.neurIdentities == 0;
+            this.inh         = this.neurIdentities == 1;
+            nNeurons         = numel(this.neurIdentities);
 
             % Initialize all of the various weight matrices to be the size
             % of the eventual W matrix
@@ -106,7 +104,7 @@ classdef ConnectionProperties
             W.II = zeros(nNeurons,nNeurons);
             W.IE = zeros(nNeurons,nNeurons);
             % Then the eventual recepticle of all these instatiated values
-            t.W = zeros(nNeurons,nNeurons);
+            this.W = zeros(nNeurons,nNeurons);
 
             %% First, compute any that have base probabilities set
             for f = fields(this.Base)'
@@ -169,9 +167,10 @@ classdef ConnectionProperties
                     end
                 end
             end
+
             %% Set total connection matrix
-            t.W = W.EE + W.IE + W.II + W.EI;
-            this=t;
+            this.W = W.EE + W.IE + W.II + W.EI;
+
         end
         % ------------------------------------------------------------
         function [popIndices, averageOut, popX, popY] = ...

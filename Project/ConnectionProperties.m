@@ -198,7 +198,7 @@ classdef ConnectionProperties
             popMat = zeros(numel(popX));
 
             popMat(popX,popY) = true;
-            popOnCopy = popMat;
+            popOnCopy = logical(popMat);
 
             if this.P.(type)
               % randomly prune connection according to any probabilities
@@ -208,11 +208,13 @@ classdef ConnectionProperties
               popMat  = popMat <= this.P.(type);
 
               % Finalize component for these randomized connections
-              popMat = logical(popMat .* popOnCopy);
+              popMat = popMat .* popOnCopy;
+              [i,j] = find(popOnCopy);
+              i = unique(i); j = unique(j);
 
               % Last compute the cScale factor by the average number of
               % connections extended out by a given cell
-              averageOut = sum(popMat,2);
+              averageOut = sum(popMat(i,j),1); %TODO still sizing problems
               averageOut = 1/mean(averageOut);
             else
 
@@ -220,7 +222,7 @@ classdef ConnectionProperties
 
             % now we need to calculate the indices that follow as a result
             % of the population X projecting to population Y.
-            popIndices = reshape(popMat,1,[]);
+            popIndices = logical(reshape(popMat,1,[]));
         end
         % ------------------------------------------------------------
         function out = visualize(this,savedir)

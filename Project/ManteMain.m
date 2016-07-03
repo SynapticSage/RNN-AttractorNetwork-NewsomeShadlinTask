@@ -30,6 +30,7 @@ trialReset = false;
 figures.on          = true;
 figures.save        = true;
 figures.showStimuli = true;
+figures.showInputComp= true;
 
 %% General Paramters
 % The lines below this comment provide an optional entry point for my
@@ -43,10 +44,10 @@ if ~(exist('params','var') || PE_mode)
            'sigma', 0.3,    ...
        ... ---TASK PARAMETERS---
            ... General Trial Controls
-           'nTrials',       10, ...
+           'nTrials',       5, ...
            'trialDuration', 2,  ... 3, ...
            ... General Stimulus
-           'iFrac',         0.33, ...   Randomly select a third of the population for a stimulus to receive
+           'iFrac',         0.15, ...   Randomly select a third of the population for each stimulus to receive
            ... Context Stimulus
            'context_trialStart',    0.1, ...
            'context_trialEnd',      1.4, ...
@@ -58,8 +59,8 @@ if ~(exist('params','var') || PE_mode)
            'dot_trialEnd',          1.6, ... 1.1, ...
        ... ---NEURAL NETWORK PARAMETERS---
            ... Number of neurons of each type
-           'nInh',      1, ...
-           'nExc',      50, ...
+           'nInh',      10, ...
+           'nExc',      200, ...
            ... Neural Properties
            'rMax0E',    100, ...
            'rMax0I',    200, ...
@@ -72,14 +73,14 @@ if ~(exist('params','var') || PE_mode)
            'tauDvar',   0,     ...
            'tauM',      0.010, ...
            ... Input Properties
-           'Imax',      5, ...
-           'IwidthE',   3, ...
-           'IthE',      18, ...
-           'IwidthI',   5, ...
+           'Imax',      6, ... scales input such that max equals this
+           'IthE',      18, ... current needed for half maximal input
            'IthI',      20, ...
+           'IwidthE',   3, ...
+           'IwidthI',   5, ...
            ... Connection Properties
-           'WEErecurrent_factor',       700, ...
-           'WEEasym_factor',            300,  ...
+           'WEErecurrent_factor',       200, ...
+           'WEEasym_factor',            35,  ...
            'WIE_factor',                -320, ...
            'WEI_factor',                320, ...
            'sigmaWEErec',               0 , ...
@@ -200,6 +201,11 @@ if useGPU
         D=gpuArray(D);
         S=gpuArray(S);
 end
+if figures.showInputComp
+    Itot = zeros(length(t),nCells);
+    Isynap = zeros(length(t),nCells);
+    Irand = zeros(length(t),nCells);
+end
 for tr = 1:params.nTrials
 
     % Obtain start and stop indices of trial
@@ -216,8 +222,16 @@ for tr = 1:params.nTrials
     %% Step Through Times
     for i = startInd:stopInd
 
-        I = S(i-1,:)*W+Iapp(i,:) ...        % I depends on feedback (W*S) and applied current
-            + sigma*randn(MainStream,1)/sqrt(dt);   % and additional noise
+        noise = sigma*randn(MainStream,1)/sqrt(dt);
+        I = S(i-1,:)*W+Iapp(i,:) + noise;                       
+        
+        % --- Save input subcomponents for plotting
+        if figures.showInputComp
+            Itot(i,:) = I;
+            Isynap(i,:) = S(i-1,:);
+            Irand(i,:) = noise;
+        end
+        % ---
 
         rinf = rMax./(1.+exp(-(I-Ith)./Iwidth));        % Firing rate curve gives the steady state r
         r(i,:) = rinf + (r(i-1,:)-rinf).*exp(-dt./tauM);  % Update r from the previous timestep
@@ -256,6 +270,7 @@ for tr = 1:params.nTrials
 %             saveThis(f,savedir,filename,'fig','TrialRecord');
         end
     end
+    
 end
 
 %% Post-trial plotting
@@ -297,6 +312,13 @@ if figures.on
         saveThis(f,savedir,filename,'png');
 %         saveThis(f,savedir,filename,'fig');
     end
+    
+    if figures.showInputComp, 
+        f=characterizeInputs(Itot,Isynap,Iapp); 
+        if figures.save
+            saveThis(f,savedir,'InputComponents');
+        end
+    end;
 
 end
 
@@ -321,5 +343,5 @@ fprintf('\n--------\n');
 
 %% Final Save
 
-clearvars -except r trials Iapp;
-save('Record');
+% clearvars -except r trials Iapp;
+% save('Record');

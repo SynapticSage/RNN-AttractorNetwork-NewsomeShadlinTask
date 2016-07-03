@@ -3,7 +3,7 @@
 
 % Ryan - notes ... I think this code may
 
-clear all; clf; close all;
+clear; clf; close all;
 
 %% Flags
 figureson = true;              % set to 1 to plot a lot more figures
@@ -34,11 +34,11 @@ Nsec1= round(0.5*tmax/dt);      % Number of time steps in half of tmax
 % explore, the number of different intensities, and the max number to count
 % up to!
 stimtimevec = [ 0.5 ]; Ntimes = length(stimtimevec); % Used if stimulus duration varies
-Iappvec = [ 1 2 ]; NI = length(Iappvec);  % Used if applied input amplitude varies 
+Iappvec = [ 1 2 ]; NI = length(Iappvec);  % Used if applied input amplitude varies
 Nmax = 4;                       % Number of stimuli to count up to
 
 if ( dtime == true ) % If stimulus duration changes
-    Nstims = length(stimtimevec);       
+    Nstims = length(stimtimevec);
 elseif (multistim == true) % if stim duration and applied stimulus changes
     Nstims = length(stimtimevec)...
         *length(Iappvec)*(Nmax+1) - 1;
@@ -114,7 +114,7 @@ sigmaIE = 0;                    % Heterogeneity in cross-inhibition
 WEIval = 320/(Ncells-1);        % E to I connection strength
 
 % TIME CONSTANTS
-tausE = 0.025; tausI = 0.005; 
+tausE = 0.025; tausI = 0.005;
 taus = [tausE*ones(1,Ncells-1) tausI];       % Time constant for synapse
 
 taudbar = 0.15; taudvar = 0.0;
@@ -188,7 +188,7 @@ for stim = 1:Nstims
     Iend = Istart + trialstimtime(stim);         % Time to finish appplied current
     imin = min(round(Istart/dt)+1,length(t));   % Index of time for applied current
     imax = min(round(Iend/dt)+1,length(t));     % Index of time to end applied current
-    
+
     for i = imin:imax
         Iapp(i+Nt*(stim-1),:) = Iapp0(stim)*IappHetero;
     end
@@ -226,7 +226,7 @@ Iwidth(Ncells) = 5.0;               % Readout cell has a different steepness of 
 
 %% Intitialize Trackers and Set Max Trials
 meanrate = zeros(length(t),Ncells);                  % Mean time-dependence averaged across trials
-stdrate = zeros(length(t),Ncells);                   % Std of time-dependence across trials   
+stdrate = zeros(length(t),Ncells);                   % Std of time-dependence across trials
 mresponse1 = zeros(Nstims,Ncells,Num_of_trials);      % Response after time-averaging to each stimulus
 meanresponse1 = zeros(Nstims,Ncells);                  % Mean response after averaging across trials
 sdresponse1 = zeros(Nstims,Ncells);                    % Std of responses after averaging across trials
@@ -240,14 +240,18 @@ end
 %% Trial Simulations
 
 for trial = 1:max_trials
-    
+
     r = zeros(length(t),Ncells);    % Firing rate for each cell at all time points
     D = zeros(length(t),Ncells);    % Depression variable for each cell at all time points
     S = zeros(length(t),Ncells);    % Synaptic gating variable for each cell at all time points
-    
+
+    Itotal = zeros(length(t),Ncells);
+    synapI = zeros(length(t),Ncells);
+    sigmaI = zeros(length(t),Ncells);
+
     %% Per Stimulation
     for stim = 1:Nstims
-        
+
         if ( trial_reset || stim == 0 ) || ...
                 ( multistim && mod(stim,Nmax+1)==0 )
             r(1+Nt*(stim-1),:) = 0.0;                            % Initializing if resetting to different stimuli
@@ -258,30 +262,35 @@ for trial = 1:max_trials
             D(1+Nt*(stim-1),:) = D(Nt*(stim),:);
             S(1+Nt*(stim-1),:) = S(Nt*(stim),:);
         end
-        
+
         %% Step Through Times
         for i = 2+Nt*(stim-1):Nt*(stim)                            % Now integrate through time
+            normrand_in = randn(s1,1);
             I = S(i-1,:)*W+Iapp(i,:) ...        % I depends on feedback (W*S) and applied current
-                + sigma*randn(s1,1)/sqrt(dt);      % and additional noise
+                + sigma*normrand_in/sqrt(dt);      % and additional noise
+            % store components for analysis
+            Itotal(i,:) = I;
+            synapI(i,:) = S(i-1,:)*W;
+            sigmaI(i,:) = sigma*normrand_in/sqrt(dt);
             % S(:,i-1) is the vector of synaptic gating
             % from the previous time step for all cells
             % This gets multiplied by the weight matrix
             % to give total feedback current.
-            
+
             rinf = rmax./(1.+exp(-(I-Ith)./Iwidth));        % Firing rate curve gives the steady state r
             r(i,:) = rinf + (r(i-1,:)-rinf)*exp(-dt/taum);  % Update r from the previous timestep
-            
+
             Dinf = 1./(1.+p0.*r(i-1,:).*taud);                  % Steady state value of D for Poisson spiking
             D(i,:) = Dinf + ( D(i-1,:)-Dinf).*...
                 exp(-dt*(p0.*r(i-1,:)+1./taud));  % Update with adjusted time constant
-            
+
             Sinf = sfrac*p0.*r(i,:).*D(i,:).*taus./(1.0+sfrac*p0.*r(i,:).*D(i,:).*taus); % Steady state value of synaptic gating vatiable assuming vesicle release at a rate p0*r*D
             S(i,:) = Sinf + ( S(i-1,:)-Sinf).*...
                 exp(-dt*(sfrac*p0.*r(i,:).*D(i,:)+1./taus)); % update S with adjusted tau
         end % continue to next time step
 
-        if (multistim == false  && stim > 0 ) || mod(stim,Nmax+1) > 0 
-            
+        if (multistim == false  && stim > 0 ) || mod(stim,Nmax+1) > 0
+
             % First half of trials obtain mean network responses to
             % stimuli, used later for confusibility matrix
             if trial <= Num_of_trials
@@ -294,9 +303,9 @@ for trial = 1:max_trials
                 mresponse1(stim,:,trial-Num_of_trials) =  mean(r(i-Nsec1:i,:));
             end
         end
-        
-    end 
-    
+
+    end
+
     %% Post-trial plotting
     if figureson
         figure(1)
@@ -304,10 +313,10 @@ for trial = 1:max_trials
         colorbar
         drawnow
     end
-    
+
     meanrate = meanrate + r;
     stdrate = stdrate + r.*r;
-    
+
 end
 
 %% Correlation Analysis/Figures
@@ -316,39 +325,39 @@ end
 % different stimuli and of the distinguishability of different stimuli
 % meanresponse1 = meanresponse1/Num_of_trials;
 % sdresponse1 = sqrt(sdresponse1/Num_of_trials-meanresponse1.*meanresponse1);
-% 
+%
 % shiftmresponse1 = meanresponse1 - ones(Nstims,1)*mean(meanresponse1)
 % figure(1)
 % imagesc(meanresponse1')
-% 
+%
 % [scorrr1r1, spvalr1r1] = corr(shiftmresponse1',shiftmresponse1')
 % [corrr1r1, pvalr1r1] = corr(meanresponse1',meanresponse1')
-% 
+%
 % figure(2)
 % subplot(1,2,1)
 % imagesc(scorrr1r1)
 % subplot(1,2,2)
 % imagesc(corrr1r1)
-% 
+%
 % bintvec = 0:bint:tmax*(Nstims+1)-bint;
 % binmeanrate = zeros(length(bintvec),Ncells);
 % binstdrate = zeros(length(bintvec),Ncells);
-% 
+%
 % for i = 1:length(bintvec)
 %     binmeanrate(i,:) = mean(meanrate((i-1)*nbin+1:i*nbin,:));
 %     binstdrate(i,:) = mean(stdrate((i-1)*nbin+1:i*nbin,:));
 % end
-% 
-% 
+%
+%
 % binmeanrate = binmeanrate/Num_of_trials;
 % binstdrate = binstdrate/Num_of_trials - binmeanrate.*binmeanrate;
-% 
+%
 % maxcorrs = zeros(Nstims,Num_of_trials);
 % for i = 1:Num_of_trials
 %     trialcorr = corr(squeeze(mresponse1(:,:,i))',meanresponse1');
-%     [dummy maxcorrs(:,i)] = max(trialcorr);    
+%     [dummy maxcorrs(:,i)] = max(trialcorr);
 % end
-% 
+%
 % confusibility = hist(maxcorrs',[1:Nstims]);
 % confusibility = confusibility/Num_of_trials;
 % figure(3)
@@ -380,4 +389,3 @@ hf = figure();
 % set(hf,'Position',[150 150 w h])
 axis off
 movie(hf,M,1,5,[0 0 0 0])
-

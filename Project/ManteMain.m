@@ -11,7 +11,7 @@ if useGPU
     reset(gpuDevice(1)); % Resets gpu memory, if anything is in it.
 end
 % ParameterExplorer controlled mode
-PE_mode = false;
+PE_mode = true;
 if PE_mode
     % Has to be set, because parallel matlab workers hate docked windows
     set(0,'DefaultFigureWindowStyle','normal');
@@ -196,6 +196,7 @@ Connect = ConnectionProperties; % Creates W vector
 r = zeros(length(t),nCells);    % Firing rate for each cell at all time points
 D = zeros(length(t),nCells);    % Depression variable for each cell at all time points
 S = zeros(length(t),nCells);    % Synaptic gating variable for each cell at all time points
+trialTrackersInit=false;        % Tracks initialization of trial trackers
 if useGPU
         r=gpuArray(r);
         D=gpuArray(D);
@@ -217,6 +218,14 @@ for tr = 1:params.nTrials
         r(startInd,:) = 0.0;                            % Initializing if resetting to different stimuli
         D(startInd,:) = 1.0;
         S(startInd,:) = 0.0;
+    end
+    
+    if ~trialTrackersInit
+        trialR = zeros(...
+            params.nTrials,...
+            (trials.bin(tr,2)-trials.bin(tr,1)-1)*nCells...
+            );
+        trialTrackersInit=true;
     end
 
     %% Step Through Times
@@ -246,7 +255,7 @@ for tr = 1:params.nTrials
     end
 
     %% Calculate post-trial measures
-
+%     trialR(tr,:) = trialprocess(r(trials.bin(tr,1):trials.bin(tr,2),:));
 
 
     %% Post-trial plotting
@@ -313,10 +322,10 @@ if figures.on
 %         saveThis(f,savedir,filename,'fig');
     end
     
-    if figures.showInputComp, 
+    if figures.showInputComp
         f=characterizeInputs(Itot,Isynap,Iapp); 
         if figures.save
-            saveThis(f,savedir,'InputComponents');
+            saveThis(f,savedir,'InputComponents','png');
         end
     end;
 

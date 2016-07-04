@@ -21,7 +21,7 @@ function [firingrate] = trialprocess(firingrate,varargin)
   firingrate = (firingrate - meanr)./stdr;
 
   % Need to output a 1D representation of the firing rate to match the form in the paper
-  firingrate = reshape(firingrate,[],1);
+  firingrate = reshape(firingrate,1,[]);
 
   %% Send to GPU?
   if gpuEnable

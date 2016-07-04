@@ -196,6 +196,7 @@ Connect = ConnectionProperties; % Creates W vector
 r = zeros(length(t),nCells);    % Firing rate for each cell at all time points
 D = zeros(length(t),nCells);    % Depression variable for each cell at all time points
 S = zeros(length(t),nCells);    % Synaptic gating variable for each cell at all time points
+noise = sigma*randn(MainStream,1,length(t))/sqrt(dt);
 trialTrackersInit=false;        % Tracks initialization of trial trackers
 if useGPU
         r=gpuArray(r);
@@ -231,14 +232,13 @@ for tr = 1:params.nTrials
     %% Step Through Times
     for i = startInd:stopInd
 
-        noise = sigma*randn(MainStream,1)/sqrt(dt);
-        I = S(i-1,:)*W+Iapp(i,:) + noise;                       
+        
+        I = S(i-1,:)*W+Iapp(i,:) + noise(i);                       
         
         % --- Save input subcomponents for plotting
         if figures.showInputComp
-            Itot(i,:) = I;
-            Isynap(i,:) = S(i-1,:);
-            Irand(i,:) = noise;
+            Itot(i,:) = gather(I);
+            Isynap(i,:) = gather(S(i-1,:));
         end
         % ---
 
@@ -259,26 +259,26 @@ for tr = 1:params.nTrials
 
 
     %% Post-trial plotting
-    if figures.on
-
-        f=figure(1);
-        figures.nSubplot = 2;
-
-        subplot(figures.nSubplot,1,figures.nSubplot-1);
-        imagesc(t,1:nCells-params.nInh,r(:,1:end-params.nInh)'); axis tight;
-        colorbar; title('Exc');
-        subplot(figures.nSubplot,1,figures.nSubplot);
-        imagesc(t,nCells-params.nInh+1:nCells,r(:,end-params.nInh+1:end)'); axis tight;
-        colorbar; title('Inh');
-
-        drawnow;
-
-        if figures.save
-            filename=sprintf('Activity_BeforeTrial_%d',tr);
-            saveThis(f,savedir,filename,'png','TrialRecord');
-%             saveThis(f,savedir,filename,'fig','TrialRecord');
-        end
-    end
+%     if figures.on
+% 
+%         f=figure(1);
+%         figures.nSubplot = 2;
+% 
+%         subplot(figures.nSubplot,1,figures.nSubplot-1);
+%         imagesc(t,1:nCells-params.nInh,r(:,1:end-params.nInh)'); axis tight;
+%         colorbar; title('Exc');
+%         subplot(figures.nSubplot,1,figures.nSubplot);
+%         imagesc(t,nCells-params.nInh+1:nCells,r(:,end-params.nInh+1:end)'); axis tight;
+%         colorbar; title('Inh');
+% 
+%         drawnow;
+% 
+%         if figures.save
+%             filename=sprintf('Activity_BeforeTrial_%d',tr);
+%             saveThis(f,savedir,filename,'png','TrialRecord');
+% %             saveThis(f,savedir,filename,'fig','TrialRecord');
+%         end
+%     end
     
 end
 

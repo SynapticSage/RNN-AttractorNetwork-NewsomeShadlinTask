@@ -2,7 +2,6 @@
 % model on a stimulus regime that's supposed to mimic the Mante task.
 
 %% Pre-processing and Basic Definitions
-
 close all;
 
 % Whether to use GPU
@@ -27,10 +26,11 @@ dsamp       = @(x) downsample(x,10);
 % Whether to reset network after each trial
 trialReset = false;
 % Turn on additional plotting
-figures.on          = true;
-figures.save        = true;
-figures.showStimuli = true;
-figures.showInputComp= true;
+figures.on              = true;
+figures.save            = true;
+figures.showStimuli     = true;
+figures.showInputComp   = true;
+figures.midprocess      = false;
 
 %% General Paramters
 % The lines below this comment provide an optional entry point for my
@@ -69,7 +69,7 @@ if ~(exist('params','var') || PE_mode)
            ...Time Constants
            'tausE',     0.025, ...
            'tausI',     0.005, ...
-           'tauDbar',   0.025, ...
+           'tauDbar',   0.15, ...
            'tauDvar',   0,     ...
            'tauM',      0.010, ...
            ... Input Properties
@@ -80,7 +80,7 @@ if ~(exist('params','var') || PE_mode)
            'IwidthI',   5, ...
            ... Connection Properties
            'WEErecurrent_factor',       200, ...
-           'WEEasym_factor',            35,  ...
+           'WEEasym_factor',            50,  ...
            'WIE_factor',                -320, ...
            'WEI_factor',                320, ...
            'sigmaWEErec',               0 , ...
@@ -170,12 +170,12 @@ Connect = ConnectionProperties; % Creates W vector
         [Iapp.context, trials.context, trials.raw.context, trials.bin, t] = ...
           Context.returnOutputs();
     % (2) Setup Dot Stimulus
-    Dots = GeneralStim;
-        Dots.trialStart     = params.dot_trialStart;
-        Dots.trialStop      = params.dot_trialEnd;
-        Dots.nStates        = 3;
-        Dots=Dots.generateStimuli();
-        [Iapp.dots, trials.dots, trials.raw.dots] = Dots.returnOutputs();
+    Motion = GeneralStim;
+        Motion.trialStart     = params.dot_trialStart;
+        Motion.trialStop      = params.dot_trialEnd;
+        Motion.nStates        = 3;
+        Motion=Motion.generateStimuli();
+        [Iapp.motion, trials.motion, trials.raw.motion] = Motion.returnOutputs();
     % (3) Setup Color Stimulus
     Color = GeneralStim;
         Color.trialStart    = params.color_trialStart;
@@ -188,7 +188,7 @@ Connect = ConnectionProperties; % Creates W vector
     clear Context Dots Color GeneralStim;
 
    % Racast Iapp as the superposition of the inputs influence on cells
-   Iapp = Iapp.context + Iapp.color + Iapp.dots;
+   Iapp = Iapp.context + Iapp.color + Iapp.motion;
    Iapp = (params.Imax/max(max(Iapp))) * Iapp;
 
 %% Execute Simulation
@@ -196,8 +196,11 @@ Connect = ConnectionProperties; % Creates W vector
 r = zeros(length(t),nCells);    % Firing rate for each cell at all time points
 D = zeros(length(t),nCells);    % Depression variable for each cell at all time points
 S = zeros(length(t),nCells);    % Synaptic gating variable for each cell at all time points
+% noise for each simulation step
 noise = sigma*randn(MainStream,1,length(t))/sqrt(dt);
-trialTrackersInit=false;        % Tracks initialization of trial trackers
+% trial trackers for post-processing
+tt.r = {};
+tt.trMat = {};
 if useGPU
         r=gpuArray(r);
         D=gpuArray(D);
@@ -208,6 +211,7 @@ if figures.showInputComp
     Isynap = zeros(length(t),nCells);
     Irand = zeros(length(t),nCells);
 end
+
 for tr = 1:params.nTrials
 
     % Obtain start and stop indices of trial
@@ -219,14 +223,6 @@ for tr = 1:params.nTrials
         r(startInd,:) = 0.0;                            % Initializing if resetting to different stimuli
         D(startInd,:) = 1.0;
         S(startInd,:) = 0.0;
-    end
-    
-    if ~trialTrackersInit
-        trialR = zeros(...
-            params.nTrials,...
-            (trials.bin(tr,2)-trials.bin(tr,1)-1)*nCells...
-            );
-        trialTrackersInit=true;
     end
 
     %% Step Through Times
@@ -254,31 +250,32 @@ for tr = 1:params.nTrials
             exp(-dt*(sFrac.*p0.*r(i,:).*D(i,:)+1./tauS)); % update S with adjusted tau
     end
 
-    %% Calculate post-trial measures
-%     trialR(tr,:) = trialprocess(r(trials.bin(tr,1):trials.bin(tr,2),:));
+    %% Collect post-trial measures
+%     tt.r{tr} = trialprocess(r(trials.bin(tr,1):trials.bin(tr,2),:));
+%     tt.trMat{tr} = [trials.context(tr), trials.motion(tr), trials.color(tr)];
 
 
-    %% Post-trial plotting
-%     if figures.on
-% 
-%         f=figure(1);
-%         figures.nSubplot = 2;
-% 
-%         subplot(figures.nSubplot,1,figures.nSubplot-1);
-%         imagesc(t,1:nCells-params.nInh,r(:,1:end-params.nInh)'); axis tight;
-%         colorbar; title('Exc');
-%         subplot(figures.nSubplot,1,figures.nSubplot);
-%         imagesc(t,nCells-params.nInh+1:nCells,r(:,end-params.nInh+1:end)'); axis tight;
-%         colorbar; title('Inh');
-% 
-%         drawnow;
-% 
-%         if figures.save
-%             filename=sprintf('Activity_BeforeTrial_%d',tr);
-%             saveThis(f,savedir,filename,'png','TrialRecord');
-% %             saveThis(f,savedir,filename,'fig','TrialRecord');
-%         end
-%     end
+    %% Mid-process plotting
+    if figures.on && figures.midprocess
+
+        f=figure(1);
+        figures.nSubplot = 2;
+
+        subplot(figures.nSubplot,1,figures.nSubplot-1);
+        imagesc(t,1:nCells-params.nInh,r(:,1:end-params.nInh)'); axis tight;
+        colorbar; title('Exc');
+        subplot(figures.nSubplot,1,figures.nSubplot);
+        imagesc(t,nCells-params.nInh+1:nCells,r(:,end-params.nInh+1:end)'); axis tight;
+        colorbar; title('Inh');
+
+        drawnow;
+
+        if figures.save
+            filename=sprintf('Activity_BeforeTrial_%d',tr);
+            saveThis(f,savedir,filename,'png','TrialRecord');
+%             saveThis(f,savedir,filename,'fig','TrialRecord');
+        end
+    end
     
 end
 
@@ -293,14 +290,14 @@ if figures.on
         subplot(figures.nSubplot,1,1); hold on;
 
         p1=plot(dsamp(t),dsamp(trials.raw.context),'linewidth',2);
-        p2=plot(dsamp(t),dsamp(trials.raw.dots),'linewidth',2);
+        p2=plot(dsamp(t),dsamp(trials.raw.motion),'linewidth',2);
         p3=plot(dsamp(t),dsamp(trials.raw.color),'linewidth',2);
 
         axis tight;
 
         plot_digital(dsamp(t),dsamp(trials.raw.context),...
             'color',get(p1,'color'));
-        plot_digital(dsamp(t),dsamp(trials.raw.dots),...
+        plot_digital(dsamp(t),dsamp(trials.raw.motion),...
             'color',get(p2,'color'));
         plot_digital(dsamp(t),dsamp(trials.raw.color),...
             'color',get(p3,'color'));
@@ -331,7 +328,7 @@ if figures.on
 
 end
 
-%% Post-simulation statistics
+%% Post-simulation analysis
 meanrate  = mean(r,1);
 stdrate   = std(r,1);
 
@@ -339,18 +336,9 @@ fprintf('\n--------\nMean R:\t');   fprintf('%9.3f ',meanrate);
 fprintf('\n--------\nStd R:\t');    fprintf('%9.3f ',stdrate);
 fprintf('\n--------\n');
 
-%% Post-simulation Analysis: Multiple Linear Regress
-
-% Construct unit matrices
-
-
-% Regress trial by trial, motion, color, and context
-
-%
-
-%% Post-simulation Analysis:
+% Carry out glm and pca on population activity
+% characterizePopulationActivity(tt);
 
 %% Final Save
-
 % clearvars -except r trials Iapp;
 % save('Record');

@@ -309,7 +309,7 @@ for trial = 1:max_trials
     %% Post-trial plotting
     if figureson
         figure(1)
-        imagesc(r(:,1:end-1)')
+        imagesc(t(2+Nt*(stim-1):Nt*(stim)),1:size(r,2),r(:,1:end-1)')
         colorbar
         drawnow
     end

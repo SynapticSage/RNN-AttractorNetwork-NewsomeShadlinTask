@@ -228,9 +228,9 @@ for tr = 1:params.nTrials
     %% Step Through Times
     for i = startInd:stopInd
 
-        
-        I = S(i-1,:)*W+Iapp(i,:) + noise(i);                       
-        
+
+        I = S(i-1,:)*W+Iapp(i,:) + noise(i);
+
         % --- Save input subcomponents for plotting
         if figures.showInputComp
             Itot(i,:) = gather(I);
@@ -251,8 +251,10 @@ for tr = 1:params.nTrials
     end
 
     %% Collect post-trial measures
-%     tt.r{tr} = trialprocess(r(trials.bin(tr,1):trials.bin(tr,2),:));
-%     tt.trMat{tr} = [trials.context(tr), trials.motion(tr), trials.color(tr)];
+     tt.r(tr,:,:)    = frProcess(r(trials.bin(tr,1):trials.bin(tr,2),:));
+     tt.trMat        = ...
+         repmat([trials.context(tr), trials.motion(tr), trials.color(tr)]',...
+         1,1,nCells);
 
 
     %% Mid-process plotting
@@ -276,7 +278,7 @@ for tr = 1:params.nTrials
 %             saveThis(f,savedir,filename,'fig','TrialRecord');
         end
     end
-    
+
 end
 
 %% Post-trial plotting
@@ -318,9 +320,9 @@ if figures.on
         saveThis(f,savedir,filename,'png');
 %         saveThis(f,savedir,filename,'fig');
     end
-    
+
     if figures.showInputComp
-        f=characterizeInputs(Itot,Isynap,Iapp); 
+        f=characterizeInputs(Itot,Isynap,Iapp);
         if figures.save
             saveThis(f,savedir,'InputComponents','png');
         end

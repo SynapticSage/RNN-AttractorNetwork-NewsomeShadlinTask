@@ -1,4 +1,4 @@
-function [firingrate] = trialprocess(firingrate,varargin)
+function [firingrate] = frProcess(firingrate,varargin)
   % Processes trial information to compute measures like in the Mante, Susillo, Abott paper
   %
   % INPUT:
@@ -18,10 +18,10 @@ function [firingrate] = trialprocess(firingrate,varargin)
   % First need to create a firing rate that's normalized for that particular time and trial
   meanr = mean(firingrate,1);
   stdr = std(firingrate,1);
-  firingrate = (firingrate - meanr)./stdr;
-
-  % Need to output a 1D representation of the firing rate to match the form in the paper
-  firingrate = reshape(firingrate,1,[]);
+  firingrate = (firingrate - meanr)./stdr; temp=firingrate;
+  % Need to reshape so that cell count points into 3rd dimension
+  firingrate = reshape(firingrate,1,size(firingrate,1),size(firingrate,2));
+  assert(isequal(temp,firingrate(1,:,:)));
 
   %% Send to GPU?
   if gpuEnable

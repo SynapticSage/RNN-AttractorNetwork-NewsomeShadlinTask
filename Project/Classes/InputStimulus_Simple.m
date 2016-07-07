@@ -30,7 +30,7 @@ classdef InputStimulus_Simple
         stimulateInhibitoryCells=false;
 
         % Number of states stimulus can take, once per trial
-        nStates=1;      % number of states
+        nAmps=1;      % number of states
         positiveAndNegative=true; % increases the number of states by a factor of two if on
 
         % Flag - GPU vector
@@ -42,7 +42,7 @@ classdef InputStimulus_Simple
     % METHODS TO GEN STIMULI
     methods
         % ---------------------------------------------------------------
-        function this = generateStimuli(this)
+        function this = generateStimuli(this,yokedStim)
 
             %% Pre-processing steps
 
@@ -66,8 +66,6 @@ classdef InputStimulus_Simple
             % Need to calculate start and stops for stimulus
             stimulus = mod(times,this.trialDuration)>=this.trialStart & ...
                 mod(times,this.trialDuration)<=this.trialStop;
-            % Convert into a scaled stimulus
-            stimulus = stimulus * this.I_base;
             % Now replicate into a neuron sized matrix
             stimulus = repmat(stimulus',[1 numel(this.neurIdentities)]);
             % And then filter out neurons unstimulated by the specified
@@ -83,26 +81,37 @@ classdef InputStimulus_Simple
             indStop = [indStart(2:end)-1 numel(times)];
             assert(numel(indStart) == numel(indStop));
 
+            % Randomly pick stimulus values or compute them from a yoked
+            % stimulus.
+            % create a random stimulus strength to present the stimulus
+            % at!
+            if nargin == 1
+                trialval = ceil( (this.nAmps)*rand(r,1,this.nTrials) );
+            else
+                assert(isequal(class(yokedStim),'InputStimulus_Simple'));
+                trialval = yokedStim.nAmps-abs(yokedStim.trialval);
+            end
+            if this.positiveAndNegative
+                stimsign = (round(rand(1,this.nTrials))*2)-1;
+                trialval = trialval .* stimsign;
+            end
+            
             % now for each indStart/indEnd pair, need to randomly assign a
             % strength
-            trialval = zeros(numel(indStart),1); cnt=0;
+            cnt=0; stimulus=cast(stimulus,'double');
             for i = [indStart;indStop]
 
                 cnt=cnt+1;
-
-                % create a random stimulus strength to present the stimulus
-                % at!
-                trialval(cnt) = ceil((this.nStates)*rand(r,1,1));
-                if this.positiveAndNegative
-                    stimSign = round(rand(1))*(-1);
-                    if stimSign, trialval(cnt) = stimSign * trialval(cnt); end; %#ok<BDLGI>
-                end
+                
                 stimulus(i(1):i(2),whoStimulate) = ...
-                  stimulus(i(1):i(2),whoStimulate) * trialval(cnt);
+                  (stimulus(i(1):i(2),whoStimulate) * trialval(cnt));
 
                 % store the start and stop indices of a trial
                 this.trialBin = [this.trialBin; i(1) i(2)];
             end
+            
+            % Convert into a scaled stimulus
+            stimulus = stimulus * this.I_base;
 
             %% Output
             this.Iapp = stimulus; % Value of current for each cell

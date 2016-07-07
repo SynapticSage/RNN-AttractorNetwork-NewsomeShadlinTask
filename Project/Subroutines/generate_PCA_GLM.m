@@ -1,12 +1,14 @@
 function generate_PCA_GLM(tt,dt)
 
+r = tt.r;
+F = tt.trMat;
+
 nCells = size(r,3);
 nTime = size(r,2);
 nTrial = size(r,1);
+nConditions = size(F,1);
 
 %% GLM
-r = tt.r;
-F = tt.trialMat;
 
 % To perform GLM, we will take inverse(F*F')F*r, on each matrix indiced in the
 % third dimension across neurons.
@@ -24,7 +26,7 @@ if exist('mmx.m','file')
 else
 
   beta = zeros(size(F,1),size(r,2),nCells);
-  squareF = zeros(size(F,1),size(r,2),nCells);
+  squareF = zeros(size(F,1),size(F,1),nCells);
   Fr = zeros(size(F,1),size(r,2),nCells);
 
   for c = 1:nCells
@@ -40,13 +42,17 @@ end
 % affects that cell per time point.
 
 %% Population analysis
+X = cell(1,nConditions);
 popResp = zeros(nTime,nCells,nConditions);
 F_single = F(:,:,1); %copy the redundant information from the matrix
-for C = F_single
+for c = size(F_single,1)
   % For each unique value of that condition
-  C_unique = unque(C);
-  for c = C_unique
-    % Generate the population average over-time
+  uniques = unique(F_single(c,:));
+  X{c} = cell(1,numel(uniques));
+  for u = uniques
+    % Identify each trial bearing the value
+    trials = u == F_single(c,:);
+    X{c}{u} = populationAverage(r,trials);
   end
 end
 
@@ -61,5 +67,10 @@ end
 % smoothedPopResp = conv(popResp,kernel,'same');
 
 %%
+
+    function X = populationAverage(r,trials)
+        X = mean(r(trials,:,:),1);
+        X = squeeze(X);
+    end
 
 end

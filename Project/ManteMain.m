@@ -10,13 +10,15 @@ if useGPU
     reset(gpuDevice(1)); % Resets gpu memory, if anything is in it.
 end
 % ParameterExplorer controlled mode
-PE_mode = true;
+PE_mode = false;
 if PE_mode
     % Has to be set, because parallel matlab workers hate docked windows
     set(0,'DefaultFigureWindowStyle','normal');
+else
+    clear params;
 end
 
-% shortcut lambda functions
+% Shortcut functions
 normalize   = @(x) x./mean(x);
 zscore      = @(x) mean(x)./std(x);
 dsamp       = @(x) downsample(x,10);
@@ -44,7 +46,7 @@ if ~(exist('params','var') || PE_mode)
            'sigma', 0.2,    ...
        ... ---TASK PARAMETERS---
            ... General Trial Controls
-           'nTrials',       5, ...
+           'nTrials',       7, ...
            'trialDuration', 2,  ... 3, ...
            ... General Stimulus
            'iFrac',         0.15, ...   Randomly select a third of the population for each stimulus to receive
@@ -59,36 +61,38 @@ if ~(exist('params','var') || PE_mode)
            'dot_trialEnd',          1.6, ... 1.1, ...
        ... ---NEURAL NETWORK PARAMETERS---
            ... Number of neurons of each type
-           'nInh',      10, ...
-           'nExc',      200, ...
+           'nInh',      5, ...
+           'nExc',      30, ...
            ... Neural Properties
            'rMax0E',    100, ...
            'rMax0I',    200, ...
-           'p0E',       0.3, ...
+           'p0E',       0.45, ...
            'p0I',       0.1, ...
            ...Time Constants
            'tausE',     0.025, ...
            'tausI',     0.005, ...
-           'tauDbar',   0.15, ...
+           'tauDbar',   0.2, ...
            'tauDvar',   0,     ...
            'tauM',      0.010, ...
            ... Input Properties
            'Imax',      6, ... scales input such that max equals this
-           'IthE',      18, ... current needed for half maximal input
+           'IthE',      17, ... current needed for half maximal input
            'IthI',      20, ...
            'IwidthE',   3, ...
            'IwidthI',   5, ...
            ... Connection Properties
-           'WEErecurrent_factor',       200, ...
-           'WEEasym_factor',            35,  ...
+           'WEErecurrent_factor',       220, ...
+           'WEEasym_factor',            40,  ...
            'WIE_factor',                -320, ...
-           'WEI_factor',                320, ...
+           'WEI_factor',                325, ...
            'sigmaWEErec',               0 , ...
            'sigmaWEEasym',              0, ...
            'sigmaIE',                   0, ...
-           'pEE',                       0.0350 ...
+           'pEE',                       0.025 ...
        );
    savedir = '~/Data/Miller/Untitled';
+   savedir = ParameterExplorer.savelocation(params, ...
+       'projectfolder',savedir);
 end
 
 fprintf('SaveLocation: %s\n',savedir);
@@ -106,6 +110,7 @@ MainStream = RandStream.create('mrg32k3a','NumStreams',1,'seed','shuffle');
 % called in the simulation
 dt = params.dt;
 sigma = params.dt;
+nStimConditions = 3;
 
 %% Initialize Parameter-based Simulation Vectors
 % ------------------------------------------------------------------------
@@ -124,7 +129,7 @@ NP = NeuronProperties; % Encapsulated code for setting up overall neuron/synapti
     % Then, we invoke the generation method to create them
     NP = NP.generateOutputParams;
 
-    % last return the gpu vectors for the simulation
+    % last return the vectors for the simulation
     [tauM,tauD,tauS,p0,sFrac,rMax,Iwidth,Ith] = NP.returnOutputs();
     clear NP;
 
@@ -146,9 +151,9 @@ Connect = ConnectionProperties; % Creates W vector
 
     % then, we invoke the generation method to create W
     Connect = Connect.generateConnections();
-    Connect.visualize(savedir);
+%     Connect.visualize(savedir);
 
-    % last return the gpu vectors for the simulation
+    % last return the vectors for the simulation
     [W] = Connect.returnOutputs(); clear Connect;
 
 % ------------------------------------------------------------------------
@@ -165,7 +170,7 @@ Connect = ConnectionProperties; % Creates W vector
     Context = GeneralStim;
         Context.trialStart  = params.context_trialStart;
         Context.trialStop   = params.context_trialEnd;
-        Context.nStates     = 2;
+        Context.nAmps     = 1; % creates positive/negative states by default, unless option toggled
         Context=Context.generateStimuli();
         [Iapp.context, trials.context, trials.raw.context, trials.bin, t] = ...
           Context.returnOutputs();
@@ -173,14 +178,14 @@ Connect = ConnectionProperties; % Creates W vector
     Motion = GeneralStim;
         Motion.trialStart     = params.dot_trialStart;
         Motion.trialStop      = params.dot_trialEnd;
-        Motion.nStates        = 3;
+        Motion.nAmps        = 3;
         Motion=Motion.generateStimuli();
         [Iapp.motion, trials.motion, trials.raw.motion] = Motion.returnOutputs();
     % (3) Setup Color Stimulus
     Color = GeneralStim;
         Color.trialStart    = params.color_trialStart;
         Color.trialStop     = params.color_trialEnd;
-        Color.nStates       = 3;
+        Color.nAmps       = 3;
         Color=Color.generateStimuli();
         [Iapp.color, trials.color, trials.raw.color] = Color.returnOutputs();
 
@@ -199,8 +204,8 @@ S = zeros(length(t),nCells);    % Synaptic gating variable for each cell at all 
 % noise for each simulation step
 noise = sigma*randn(MainStream,1,length(t))/sqrt(dt);
 % trial trackers for post-processing
-tt.r = {};
-tt.trMat = {};
+tt.r = zeros(params.nTrials,floor(length(t)/params.nTrials),nCells);
+tt.trMat = zeros(nStimConditions,params.nTrials,nCells);
 if useGPU
         r=gpuArray(r);
         D=gpuArray(D);
@@ -251,10 +256,11 @@ for tr = 1:params.nTrials
     end
 
     %% Collect post-trial measures
-     tt.r(tr,:,:)    = frProcess(r(trials.bin(tr,1):trials.bin(tr,2),:));
-     tt.trMat        = ...
-         repmat([trials.context(tr), trials.motion(tr), trials.color(tr)]',...
-         1,1,nCells);
+%      tt.r(tr,:,:)    = frProcess(r(trials.bin(tr,1):trials.bin(tr,2),:),...
+%          size(tt.r(tr,:,:)));
+%      tt.trMat(:,tr,:) = ... 
+%          repmat([trials.context(tr), trials.motion(tr), trials.color(tr)]',...
+%          1,1,nCells);
 
 
     %% Mid-process plotting
@@ -339,8 +345,15 @@ fprintf('\n--------\nStd R:\t');    fprintf('%9.3f ',stdrate);
 fprintf('\n--------\n');
 
 % Carry out glm and pca on population activity
-% characterizePopulationActivity(tt);
+% generate_PCA_GLM(tt,dt);
 
 %% Final Save
+% Print out key parameters!
+fprintf('\n--------\n');
+fprintf('Recurrent EE: %3.2f, Asymmetric EE: %3.2f, \nEI: %3.2f, \nIE: %5.2f, II %3.2f', ...
+    params.WEErecurrent_factor,params.WEEasym_factor, params.WEI_factor, ...
+    params.WIE_factor, 0);
+fprintf('\n--------\n');
+    
 % clearvars -except r trials Iapp;
-% save('Record');
+%  save('Record');

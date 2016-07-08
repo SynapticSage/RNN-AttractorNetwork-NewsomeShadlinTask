@@ -21,7 +21,7 @@ if PE_MODE__
     % Has to be set, because parallel matlab workers hate docked windows
     set(0,'DefaultFigureWindowStyle','normal');
 else
-    set(0,'DefaultFigureWindowStyle','docked');
+%     set(0,'DefaultFigureWindowStyle','docked');
     clear params;
 end
 

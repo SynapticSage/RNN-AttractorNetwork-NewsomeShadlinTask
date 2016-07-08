@@ -1,4 +1,4 @@
-classdef InputStimulus_Simple
+classdef InputStimulus
     % This class calculates a the application of a stimulus across trials
     % for a particular stimulus and a set of neurons. It's a simple
     % stimulus in that it's a numbered current with a weighted application
@@ -30,8 +30,9 @@ classdef InputStimulus_Simple
         stimulateInhibitoryCells=false;
 
         % Number of states stimulus can take, once per trial
-        nAmps=1;      % number of states
-        positiveAndNegative=true; % increases the number of states by a factor of two if on
+        nAmps=1;            % number of states
+        opposites=false;    % options, false-none, 'negatives'-negative current, 'population'-partition set halves -- they're all not totally realistic
+        opposingPopInh=0; % if provide a fraction, then a fraction of the excitation for the active population is inhibiting opposing population
 
         % Flag - GPU vector
         useGPU=false;
@@ -58,6 +59,19 @@ classdef InputStimulus_Simple
                 whoStimulate ...
                     = logical(whoStimulate .* (this.neurIdentities == 0));
             end
+            if isequal(this.opposites,'population')
+                oppStimulate = find(~whoStimulate);
+                oppStimulate = oppStimulate(randperm(numel(oppStimulate)));
+                oppStimulate = oppStimulate(...
+                    1:...
+                    round(this.iFrac*numel(this.neurIdentities))...
+                    );
+                oppStimulate = ismember(1:numel(this.neurIdentities), oppStimulate);
+                oppStimulate ...
+                    = logical(oppStimulate .* (this.neurIdentities == 0));
+            else
+                oppStimulate = zeros(size(this.neurIdentities));
+            end
 
             % Bin up time
             times = 0:this.dt:this.trialDuration*this.nTrials; %#ok<*PROP,*PROPLC>
@@ -70,7 +84,7 @@ classdef InputStimulus_Simple
             stimulus = repmat(stimulus',[1 numel(this.neurIdentities)]);
             % And then filter out neurons unstimulated by the specified
             % fraction
-            stimulus(:,~whoStimulate) = 0;
+            stimulus(:,~(whoStimulate|oppStimulate)) = 0;
 
             % acquire the bin numbers of the times at which the stimulus is
             % on. we can do this by looking at the diff'd mod'd times with
@@ -91,7 +105,7 @@ classdef InputStimulus_Simple
                 assert(isequal(class(yokedStim),'InputStimulus_Simple'));
                 trialval = yokedStim.nAmps-abs(yokedStim.trialval);
             end
-            if this.positiveAndNegative
+            if this.opposites
                 stimsign = (round(rand(1,this.nTrials))*2)-1;
                 trialval = trialval .* stimsign;
             end
@@ -103,8 +117,26 @@ classdef InputStimulus_Simple
 
                 cnt=cnt+1;
                 
-                stimulus(i(1):i(2),whoStimulate) = ...
-                  (stimulus(i(1):i(2),whoStimulate) * trialval(cnt));
+                if isequal(this.opposites,'population')
+                    if trialval(cnt) >= 0
+                        stimulus(i(1):i(2),whoStimulate) = ... 
+                            (stimulus(i(1):i(2),whoStimulate) * trialval(cnt));
+                        stimulus(i(1):i(2),oppStimulate) = ... 
+                            stimulus(i(1):i(2),oppStimulate) * ...
+                            -(this.opposingPopInh * trialval(cnt));
+                        stimulus(i(1):i(2),~whoStimulate) = 0;
+                    else
+                        stimulus(i(1):i(2),oppStimulate) = ...
+                            stimulus(i(1):i(2),oppStimulate) * abs(trialval(cnt));
+                         stimulus(i(1):i(2),whoStimulate) = ... 
+                            stimulus(i(1):i(2),whoStimulate) * ...
+                            -(this.opposingPopInh * trialval(cnt));
+                        stimulus(i(1):i(2),~oppStimulate) = 0;
+                    end
+                else
+                    stimulus(i(1):i(2),whoStimulate) = ... 
+                      (stimulus(i(1):i(2),whoStimulate) * trialval(cnt));
+                end
 
                 % store the start and stop indices of a trial
                 this.trialBin = [this.trialBin; i(1) i(2)];
@@ -116,8 +148,11 @@ classdef InputStimulus_Simple
             %% Output
             this.Iapp = stimulus; % Value of current for each cell
             this.trialval = trialval; % Value of the stimulus for the trial (Useful later for the multiregresion)
-            this.stimulus = ...
-                stimulus(:,find(whoStimulate, 1, 'first')); % Value of stimulus for a cell receiving the input
+            this.stimulus = stimulus(:,find(whoStimulate, 1, 'first')); % Value of stimulus for a cell receiving the input
+            if isequal(this.opposites,'population'),
+                this.stimulus=this.stimulus-...
+                    stimulus(:,find(oppStimulate, 1, 'first')); 
+            end
 
         end
         % ---------------------------------------------------------------

@@ -9,18 +9,25 @@ useGPU = false;
 if useGPU
     reset(gpuDevice(1)); % Resets gpu memory, if anything is in it.
 end
-% ParameterExplorer controlled mode
-PE_mode = true;
-if PE_mode
+
+% If a "preprocessor" like directive is passed from a calling instance of
+% ParameterExplorer, figure mode must not be docked for parllel/ssh workers
+% ... Else, the script is being run as a stand-alone, so params struct
+% should be cleared in case user changes a value
+if ~exist('PE_MODE__','var')
+    PE_MODE__ = false;
+end
+if PE_MODE__
     % Has to be set, because parallel matlab workers hate docked windows
     set(0,'DefaultFigureWindowStyle','normal');
 else
+    set(0,'DefaultFigureWindowStyle','docked');
     clear params;
 end
 
 % Shortcut functions
-normalize   = @(x) x./mean(x);
-zscore      = @(x) mean(x)./std(x);
+normalize   = @(x) x ./ mean(x);
+zscore      = @(x) (x-mean(x))./std(x);
 dsamp       = @(x) downsample(x,10);
 
 %% General Flags
@@ -37,19 +44,21 @@ figures.midprocess      = false;
 %% General Paramters
 % The lines below this comment provide an optional entry point for my
 % ParameterExplorer class.
-if ~(exist('params','var') || PE_mode)
+if ~(exist('params','var') || PE_MODE__)
    params = struct( ...
            ... Model Resolution/Precision
            'dt',    2e-4, ... Model bin size
            'bin_t', 5e-2, ... How to bin post hoc for analysis
            ... Model noise
-           'sigma', 0.2,    ...
+           'sigma', 0.1,    ...
        ... ---TASK PARAMETERS---
            ... General Trial Controls
-           'nTrials',       7, ...
+           'nTrials',       7200, ...
            'trialDuration', 2,  ... 3, ...
            ... General Stimulus
            'iFrac',         0.15, ...   Randomly select a third of the population for each stimulus to receive
+           ... How Opposing Stim Handled (how to compute cells stim fed to)
+           'oppSimple',     false, ...
            ... Context Stimulus
            'context_trialStart',    0.1, ...
            'context_trialEnd',      1.4, ...
@@ -62,7 +71,7 @@ if ~(exist('params','var') || PE_mode)
        ... ---NEURAL NETWORK PARAMETERS---
            ... Number of neurons of each type
            'nInh',      5, ...
-           'nExc',      30, ...
+           'nExc',      100, ...
            ... Neural Properties
            'rMax0E',    100, ...
            'rMax0I',    200, ...
@@ -76,19 +85,19 @@ if ~(exist('params','var') || PE_mode)
            'tauM',      0.010, ...
            ... Input Properties
            'Imax',      6, ... scales input such that max equals this
-           'IthE',      17, ... current needed for half maximal input
+           'IthE',      17.75, ... current needed for half maximal input
            'IthI',      20, ...
            'IwidthE',   3, ...
            'IwidthI',   5, ...
            ... Connection Properties
-           'WEErecurrent_factor',       220, ...
-           'WEEasym_factor',            40,  ...
+           'WEErecurrent_factor',       200, ...
+           'WEEasym_factor',            50,  ...
            'WIE_factor',                -320, ...
-           'WEI_factor',                325, ...
+           'WEI_factor',                320, ...
            'sigmaWEErec',               0 , ...
            'sigmaWEEasym',              0, ...
            'sigmaIE',                   0, ...
-           'pEE',                       0.03 ...
+           'pEE',                       0.06 ...
        );
    savedir = '~/Data/Miller/Untitled';
    savedir = ParameterExplorer.savelocation(params, ...
@@ -115,16 +124,16 @@ nStimConditions = 3;
 %% Initialize Parameter-based Simulation Vectors
 % ------------------------------------------------------------------------
 % NEURAL VECTORS
-NP = NeuronProperties; % Encapsulated code for setting up overall neuron/synaptic vectors
+NP = NeuronProperties(); % Encapsulated code for setting up overall neuron/synaptic vectors
     % First, we set the properties to build the the output properties
     NP.neurIdentities = neurIdentites;
-    NP.rMax0E=params.rMax0E;        NP.rMax0I=params.rMax0I;
-    NP.p0E=params.p0E;              NP.p0I=params.p0I;
-    NP.tausE=params.tausE;          NP.tausI=params.tausI;
-    NP.tauDbar=params.tauDbar;      NP.tauDvar=params.tauDvar;
-    NP.tauMbar=params.tauM;
-    NP.IwidthI =  params.IwidthI;   NP.IwidthE = params.IwidthE;
-    NP.Ith0E =  params.IthE;        NP.Ith0I = params.IthI;
+    NP.rMax0E   =params.rMax0E;     NP.rMax0I=params.rMax0I;
+    NP.p0E      =params.p0E;        NP.p0I=params.p0I;
+    NP.tausE    =params.tausE;      NP.tausI=params.tausI;
+    NP.tauDbar  =params.tauDbar;    NP.tauDvar=params.tauDvar;
+    NP.tauMbar  =params.tauM;
+    NP.IwidthI  =params.IwidthI;    NP.IwidthE = params.IwidthE;
+    NP.Ith0E    =params.IthE;        NP.Ith0I = params.IthI;
 
     % Then, we invoke the generation method to create them
     NP = NP.generateOutputParams;
@@ -137,7 +146,7 @@ NP = NeuronProperties; % Encapsulated code for setting up overall neuron/synapti
 % CONECTION VECTORS
 
 % Setup W matrix constructor
-Connect = ConnectionProperties; % Creates W vector
+Connect = ConnectionProperties(); % Creates W vector
     % First, we set the properties to build the W matrix
     Connect.neurIdentities  = neurIdentites;
     Connect.Rec.EE          = params.WEErecurrent_factor;
@@ -151,14 +160,14 @@ Connect = ConnectionProperties; % Creates W vector
 
     % then, we invoke the generation method to create W
     Connect = Connect.generateConnections();
-    Connect.visualize(savedir);
+    if figures.on, Connect.visualize(savedir); end;
 
     % last return the vectors for the simulation
     [W] = Connect.returnOutputs(); clear Connect;
 
 % ------------------------------------------------------------------------
 % STIMULI VECTORS
-    GeneralStim = InputStimulus_Simple();
+    GeneralStim = InputStimulus();
         % The following parameters should be put into the moving parameter
         % set
         GeneralStim.neurIdentities = neurIdentites;
@@ -166,6 +175,12 @@ Connect = ConnectionProperties; % Creates W vector
         GeneralStim.nTrials = params.nTrials; % number of trials
         GeneralStim.trialDuration = params.trialDuration; % seconds
         GeneralStim.iFrac = 0.3; clear Iapp;
+        if params.oppSimple
+            GeneralStim.opposites = 'negative';
+        else
+            GeneralStim.opposites = 'population';
+            %GeneralStim.opposingPopInh=0.5;
+        end
     % (1) Setup Context Stimulus
     Context = GeneralStim;
         Context.trialStart  = params.context_trialStart;
@@ -204,8 +219,8 @@ S = zeros(length(t),nCells);    % Synaptic gating variable for each cell at all 
 % noise for each simulation step
 noise = sigma*randn(MainStream,1,length(t))/sqrt(dt);
 % trial trackers for post-processing
-tt.r = zeros(params.nTrials,floor(length(t)/params.nTrials),nCells);
-tt.trMat = zeros(nStimConditions,params.nTrials,nCells);
+TrialCollection.r = zeros(params.nTrials,floor(length(t)/params.nTrials),nCells);
+TrialCollection.F = zeros(nStimConditions,params.nTrials,nCells);
 if useGPU
         r=gpuArray(r);
         D=gpuArray(D);
@@ -256,11 +271,11 @@ for tr = 1:params.nTrials
     end
 
     %% Collect post-trial measures
-%      tt.r(tr,:,:)    = frProcess(r(trials.bin(tr,1):trials.bin(tr,2),:),...
-%          size(tt.r(tr,:,:)));
-%      tt.trMat(:,tr,:) = ... 
-%          repmat([trials.context(tr), trials.motion(tr), trials.color(tr)]',...
-%          1,1,nCells);
+     TrialCollection.r(tr,:,:)    = frProcess(r(trials.bin(tr,1):trials.bin(tr,2),:),...
+         size(TrialCollection.r(tr,:,:)));
+     TrialCollection.F(:,tr,:) = ... 
+         repmat([trials.context(tr), trials.motion(tr), trials.color(tr)]',...
+         1,1,nCells);
 
 
     %% Mid-process plotting
@@ -288,9 +303,19 @@ for tr = 1:params.nTrials
 end
 
 %% Post-trial plotting
-if figures.on
 
-    f=figure(1);
+if figures.on
+    
+    % INPUTS
+    if figures.showInputComp
+        f=characterizeInputs(Itot,Isynap,Iapp);
+        if figures.save
+            saveThis(f,savedir,'InputComponents','png');
+        end
+    end;
+
+    % STIMULI VERSUS FIRING
+    f=figure(150);
     figures.nSubplot = 2;
 
     if figures.showStimuli
@@ -327,13 +352,6 @@ if figures.on
 %         saveThis(f,savedir,filename,'fig');
     end
 
-    if figures.showInputComp
-        f=characterizeInputs(Itot,Isynap,Iapp);
-        if figures.save
-            saveThis(f,savedir,'InputComponents','png');
-        end
-    end;
-
 end
 
 %% Post-simulation analysis
@@ -344,8 +362,17 @@ fprintf('\n--------\nMean R:\t');   fprintf('%9.3f ',meanrate);
 fprintf('\n--------\nStd R:\t');    fprintf('%9.3f ',stdrate);
 fprintf('\n--------\n');
 
-% Carry out glm and pca on population activity
-% generate_PCA_GLM(tt,dt);
+%% Carry Out Population Analysis
+
+% First, we need to obtain the denoising matrices, regression-components,
+% and the regression subspace
+% populationAnalyses(TrialCollection,dt);
+
+% Now plot projections of population averaged network onto each of the
+% components that approximate variance of the network that "best describe"
+% that task dimension
+
+%% Can simple mecahnism extract would-be decision from this?
 
 %% Final Save
 % Print out key parameters!
@@ -355,5 +382,5 @@ fprintf('Recurrent EE: %3.2f, Asymmetric EE: %3.2f, \nEI: %3.2f, \nIE: %5.2f, II
     params.WIE_factor, 0);
 fprintf('\n--------\n');
     
-% clearvars -except r trials Iapp;
-%  save('Record');
+ clearvars -except r trials Iapp TrialCollection params;
+save('Record');

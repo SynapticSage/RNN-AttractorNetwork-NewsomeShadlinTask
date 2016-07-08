@@ -18,7 +18,7 @@ function [firingrate] = frProcess(firingrate,reqSize,varargin)
   % First need to create a firing rate that's normalized for that particular time and trial
   meanr = mean(firingrate,1);
   stdr = std(firingrate,1);
-  firingrate = (firingrate - meanr)./stdr; temp=firingrate;
+  firingrate = firingrate-repmat(meanr,size(firingrate,1),1)./repmat(stdr,size(firingrate,1),1); temp=firingrate;
   % Need to reshape so that cell count points into 3rd dimension
   firingrate = permute(firingrate,[3 1 2]);
   

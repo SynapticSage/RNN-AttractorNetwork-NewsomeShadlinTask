@@ -35,7 +35,7 @@ dsamp       = @(x) downsample(x,10);
 % Whether to reset network after each trial
 trialReset = false;
 % Turn on additional plotting
-figures.on              = true;
+figures.on              = false;
 figures.save            = true;
 figures.showStimuli     = true;
 figures.showInputComp   = true;
@@ -53,7 +53,7 @@ if ~(exist('params','var') || PE_MODE__)
            'sigma', 0.1,    ...
        ... ---TASK PARAMETERS---
            ... General Trial Controls
-           'nTrials',       7200, ...
+           'nTrials',       1200, ...
            'trialDuration', 2,  ... 3, ...
            ... General Stimulus
            'iFrac',         0.15, ...   Randomly select a third of the population for each stimulus to receive

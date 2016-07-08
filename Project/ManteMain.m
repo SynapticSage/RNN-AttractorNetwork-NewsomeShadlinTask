@@ -233,6 +233,8 @@ if figures.showInputComp
 end
 
 for tr = 1:params.nTrials
+    
+    fprintf('\nTrial %d',tr);
 
     % Obtain start and stop indices of trial
     startInd   = max(trials.bin(tr,1),2);

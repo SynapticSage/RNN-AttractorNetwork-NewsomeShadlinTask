@@ -382,12 +382,20 @@ if figures.on
     % average on the axes derived, present in the PermCondStruct.
     P = perms([1 2 3]);
     for p = 1:size(P,1)
-        figure( 200  + p ); clf;
+        f=figure( 200  + p ); clf;
         plotPermPopMeasures([],PermCondStruct, P(p,1), P(p,2));
+        saveThis(f,savedir,sprintf('Axis-%d-%d',P(p,1), P(p,2)),'png');
+        if figures.preserveMemory
+            close(f);
+        end
     end
     
-    figure(300); clf;
+    f=figure(300); clf;
     plotPermPopMeasures([],PermCondStruct, 1,2,3);
+    saveThis(f,savedir,sprintf('Axis-%d-%d',P(p,1), P(p,2)),'png');
+    if figures.preserveMemory
+        close(f);
+    end
     
 end
 

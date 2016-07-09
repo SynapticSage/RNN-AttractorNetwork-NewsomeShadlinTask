@@ -57,7 +57,7 @@ end
             
             % provide arrows to show direction of time, if that function is
             % in path
-            if exist('arrow.h','file') && ~isempty(p(i))
+            if exist('arrowh.h','file') && ~isempty(p(i))
                 p_arrow=...
 					plotAndCorrectArrows(p(i),proj(:,1),proj(:,2));
             end

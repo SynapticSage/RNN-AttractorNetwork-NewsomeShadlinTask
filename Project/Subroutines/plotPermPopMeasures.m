@@ -95,20 +95,23 @@ end
         
          v = VideoWriter(vidFilename);
          open(v);
+         fprintf('Opened video\n');
         
         % Move each line
         for t = 1:10:size(spec(1).data(:,1))
             for i = 1:size(sMat,1)
                 proj = spec(sortInd(i)).proj;
                 addpoints(h(i), proj(t,c1), proj(t,c2), proj(t,c3));
-                drawnow;
             end
+            drawnow;
             camorbit(-pi/120,0);
+            title( sprintf('t = %d of %d',t,size(spec(1).data(:,1),1)) );
             f=getframe(currf);
             writeVideo(v,f);
         end
         
         close(v);
+        fprintf('Closed video\n');
         
     end
 

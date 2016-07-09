@@ -449,11 +449,17 @@ for i = 1:10
     performance = [performance arrayfun( @(x) ...
         isequal(predictions{x},TrialCollection.choice{h+x}) , ...
         1:numel(predictions) )];
+    
+    performance
 end
 
-performance
 performance = sum(performance)/numel(performance);
 fprintf('Predictability = %2.2f%%\n', performance*100);
+
+% NOTE: A better way to do the LDA and make sure one always takes into
+% account all time points -- feed in the dimensionality reduced triplets at
+% all times instead of the activity of all N neurons per some random sample
+% of times.
 
 %% Final Save
 

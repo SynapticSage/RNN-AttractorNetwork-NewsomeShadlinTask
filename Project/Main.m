@@ -40,6 +40,7 @@ figures.save            = true;
 figures.showStimuli     = true;
 figures.showInputComp   = true;
 figures.midprocess      = false;
+figures.preserveMemory  = false;
 
 %% General Paramters
 % The lines below this comment provide an optional entry point for my
@@ -53,7 +54,7 @@ if ~(exist('params','var') || PE_MODE__)
            'sigma', 0.1,    ...
        ... ---TASK PARAMETERS---
            ... General Trial Controls
-           'nTrials',       1500, ...
+           'nTrials',       3, ...
            'trialDuration', 2,  ... 3, ...
            ... General Stimulus
            'iFrac',         0.15, ...   Randomly select a third of the population for each stimulus to receive
@@ -283,7 +284,7 @@ for tr = 1:params.nTrials
 
 
     %% Mid-process plotting
-    if figures.on && figures.midprocess
+    if figures.on && figures.midprocess && ~figures.preserveMemory
 
         f=figure(1);
         figures.nSubplot = 2;
@@ -308,7 +309,7 @@ end
 
 %% Post-trial plotting
 
-if figures.on
+if figures.on && ~figures.preserveMemory
     
     % INPUTS
     if figures.showInputComp
@@ -379,7 +380,15 @@ fprintf('\n--------\n');
 if figures.on
     % Now, we need to plot for each combo condition the population activity
     % average on the axes derived, present in the PermCondStruct.
-    plotPermPopMeasures(PermCondStruct);
+    P = perms([1 2 3]);
+    for p = 1:size(P,1)
+        figure( 200  + p ); clf;
+        plotPermPopMeasures([],PermCondStruct, P(p,1), P(p,2));
+    end
+    
+    figure(300); clf;
+    plotPermPopMeasures([],PermCondStruct, 1,2,3);
+    
 end
 
 

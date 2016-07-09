@@ -53,7 +53,7 @@ if ~(exist('params','var') || PE_MODE__)
            'sigma', 0.1,    ...
        ... ---TASK PARAMETERS---
            ... General Trial Controls
-           'nTrials',       5, ...
+           'nTrials',       1500, ...
            'trialDuration', 2,  ... 3, ...
            ... General Stimulus
            'iFrac',         0.15, ...   Randomly select a third of the population for each stimulus to receive
@@ -452,6 +452,7 @@ if ~PE_MODE__
     saveRequest = input(sprintf('Save? [y/N]\n'),'s');
 end
 if PE_MODE__ || lower(saveRequest) == 'y'
-    clearvars -except r trials Iapp TrialCollection params;
-    save('Record');
+    clearvars -except r trials Iapp TrialCollection params ...
+        performance PermCondStruct SingleCondStruct;
+    save('Record','-v7.3');
 end

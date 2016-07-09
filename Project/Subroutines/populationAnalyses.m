@@ -1,4 +1,4 @@
-function populationAnalyses(TrialCollection,dt)
+function [SingleCondition, PermCondition] =  populationAnalyses(TrialCollection,dt)
 % Author: Ryan Y.
 % Function executes much of the analysis done in the Mante et al. 2015
 % paper. In order for this to work well, run a huge number of trials, if
@@ -50,8 +50,8 @@ end
 
 %% Population analysis - single stimulus averages
 nConditions = size(F,1);
-X_spec = struct('condition',[],'cValue',[],'data',[]);  % vector storing each condition  
-X_all = []; 
+Xspec = struct('condition',[],'cValue',[],'data',[]);  % vector storing each condition  
+Xall = []; 
 cnt = 0;
 F_single = F(:,:,1); %copy a redundant page from the 3D matrix (each page was a copy for the cell)
 for c = 1:size(F_single,1)
@@ -62,62 +62,109 @@ for c = 1:size(F_single,1)
     
     % Identify each trial bearing the value
     trials = u == F_single(c,:);
-    X_spec(cnt).condition = c;
-    X_spec(cnt).cValue = u;
+    Xspec(cnt).condition = c;
+    Xspec(cnt).cValue = u;
     popResp = populationAverage(r,trials);
-    X_spec(cnt).data = popResp;
-    X_all = [X_all; popResp];
+    Xspec(cnt).data = popResp;
+    Xall = [Xall; popResp];
   end
 end
 % Compute the number of bins in a condition
 conditionTLength = size(popResp,1);
 
-%% Population analysis  - permutation stimulus averages
-Y_spec = struct('condition',[],'cValue',[],'data',[]);  % vector storing each condition  
-Y_all = []; 
+%% Permutation population analysis  - permutation stimulus averages, 
+% e.g. context 1 then motion 2, being a permutation
+%  ... commented out for now! need to create a separate beta with an
+%  element for each of the permutations
+
+Yspec = struct('condition',[],'cValue',[],'data',[]);  % vector storing each condition  
+Yall = []; 
 conditions = unique(F_single','rows');
 nConditions = size(conditions,1);
 permPopResp = zeros(nTime,nCells,nConditions);
 uPerm = unique(F_single','rows');
+cnt = 0;
 for u = uPerm'
+    cnt=cnt+1;
     % find matching trials!
     [~,trials] = ismember(u',F_single','rows');
     % Setup store trial characteristics
-    Y_spec(cnt).cValue = u';
+    Yspec(cnt).cValue = u';
     popResp = populationAverage(r,trials);
-    Y_spec(cnt).data = popResp;
-    Y_all = [Y_all; popResp];
+    Yspec(cnt).data = popResp;
+    Yall = [Yall; popResp];
 end
 
-%% Targeted Dimensionality Reduction
+%% Acquire Targeted Dimensionality Reduction Matrices
 
 % Obtain denoising matrices
     % First for condition-specifc population averages
-    xD = denoisingMatrix(X_all);
+    xD = denoisingMatrix(Xall);
     % Second for condition permutation population averages
-    yD = denoisingMatrix(Y_all);
+     yD = denoisingMatrix(Yall);
     
 % Obtain regression subspace
     % First for condition-specifc population averages
-    xBpca = regressionSubspace();
-    % Second for condition permutation population averages
-    yBpca = regressionSubspace();
+    orthX = regressionSubspace(r,beta,xD);
+%     % Second for condition permutation population averages
+     orthY = regressionSubspace(r,beta,yD);
+
+%%  Project 
+
+% Obtain projection onto the three axes
+for c = 1:numel(Yspec)
+    Yspec(c).proj = Yspec(c).data*orthY;
+end
+     
+%% Package up all the statistical measures into struct
+%
+
+SingleCondition.specifics = Xspec;
+SingleCondition.all = Xall;
+SingleCondition.orthogConditionAxes = orthX;
+SingleCondition.denoise = xD;
+
+PermCondition.specifics = Yspec;
+PermCondition.all = Yall;
+PermCondition.orthogConditionAxes = orthY;
+PermCondition.denoise = yD;
 
 
 %% 
-    function regressionSubspace(r,beta,D)
+    function [orthAxes, Bpac_max] = regressionSubspace(r,beta,D)
+        % Output, orthogonal axes Nunits X NConditions, and also a set of
+        % non-orthogonalized "axes", because is informative of overlap in
+        % population code.
+        
         % First, we submit beta to the same denoising as can be done to a
         % populatino vector, across its time and cellular dimensions.
+        % ... beta needs to be permuted so that it can be mutiplied
+        beta = permute(beta, [3 2 1]);
+        Bpca = zeros( size(beta) );
+        for i = 1:size(beta,3) % over number of condtions
+            Bpca(:,:,i) = D * beta(:,:,i);
+        end 
         
         % Now we determine the time at which these beta vectors have
         % maximal norm! We can then derive time-independent, de-noised
         % regression vectors.
+         Bpca_norms = sqrt(sum(Bpca.^2,1));
+        [~,t_max_v] = max(Bpca_norms,[],2);
+        t_max_v = squeeze(t_max_v);
+        
+        Bpca_max = zeros( size(Bpca,1), size(Bpca,3) );
+        for i = 1:size(t_max_v,3)
+            Bpca_max(:,i) = Bpca(:,t_max_v(i),i);
+        end
+        
         
         % Now we need to orthogonalize them with respect to eachother, to
         % obtain the orthogonal components we're going to use to describ
         % the population
+        [Q,R] = qr(Bpca_max);
         
         % Slice out the orthogonal components
+        orthAxes = Q(:,1:size(beta,3));
         
         % These are the vectors we will return, such that we can the
         % project population averages per condition onto them!

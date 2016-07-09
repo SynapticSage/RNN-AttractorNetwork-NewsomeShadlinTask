@@ -1,5 +1,5 @@
 % Main for the script that implements an attractor based neural firing
-% model on a stimulus regime that's supposed to mimic the Mante task.
+% model on a stimulus regime that's supposed to mimic the Newsome task.
 
 %% Pre-processing and Basic Definitions
 close all;
@@ -35,7 +35,7 @@ dsamp       = @(x) downsample(x,10);
 % Whether to reset network after each trial
 trialReset = false;
 % Turn on additional plotting
-figures.on              = false;
+figures.on              = true;
 figures.save            = true;
 figures.showStimuli     = true;
 figures.showInputComp   = true;
@@ -53,7 +53,7 @@ if ~(exist('params','var') || PE_MODE__)
            'sigma', 0.1,    ...
        ... ---TASK PARAMETERS---
            ... General Trial Controls
-           'nTrials',       1000, ...
+           'nTrials',       5, ...
            'trialDuration', 2,  ... 3, ...
            ... General Stimulus
            'iFrac',         0.15, ...   Randomly select a third of the population for each stimulus to receive
@@ -221,6 +221,7 @@ noise = sigma*randn(MainStream,1,length(t))/sqrt(dt);
 % trial trackers for post-processing
 TrialCollection.r = zeros(params.nTrials,floor(length(t)/params.nTrials),nCells);
 TrialCollection.F = zeros(nStimConditions,params.nTrials,nCells);
+TrialCollection.choice = cell(1,params.nTrials);
 if useGPU
         r=gpuArray(r);
         D=gpuArray(D);
@@ -278,6 +279,7 @@ for tr = 1:params.nTrials
      TrialCollection.F(:,tr,:) = ... 
          repmat([trials.context(tr), trials.motion(tr), trials.color(tr)]',...
          1,1,nCells);
+     TrialCollection.choice{tr} = mapChoice( TrialCollection.F(:,tr,1) );
 
 
     %% Mid-process plotting
@@ -365,24 +367,91 @@ fprintf('\n--------\nStd R:\t');    fprintf('%9.3f ',stdrate);
 fprintf('\n--------\n');
 
 %% Carry Out Population Analysis
+% The whole point of this section is to figure out whether the population
+% activity in high dimensinoal space looks analogous to the collected
+% prefrontal data in Mante paper.
 
 % First, we need to obtain the denoising matrices, regression-components,
-% and the regression subspace
-% populationAnalyses(TrialCollection,dt);
+% and the regression subspace. This function carries out the whole set of
+% steps they took to plot population activity on the respecitive axes
+[SingleCondStruct, PermCondStruct]= populationAnalyses(TrialCollection,dt);
 
-% Now plot projections of population averaged network onto each of the
-% components that approximate variance of the network that "best describe"
-% that task dimension
+if figures.on
+    % Now, we need to plot for each combo condition the population activity
+    % average on the axes derived, present in the PermCondStruct.
+    plotPermPopMeasures(PermCondStruct);
+end
 
-%% Can simple mecahnism extract would-be decision from this?
+
+%% Can simple mecahnism extract would-be decsion from activity?
+% I could use a much better method, but Linear Discriminant is cheap sweet
+% and easy. And it can solve very similar solution space to 1 layer neural
+% nets. Improvement would be to use maybe Bayesian predictor (still
+% easy-ish) or a deep net (matlab open source packages exist now). Anyhow,
+% the feasibility of this has implications about whether a simple net with
+% plasticity could learn the choice from the activity. If LDA/QDA can
+% predict, that suggests a plastic network could, too.
+
+% First create a single matrix where each row holds the complete record
+% present in a trial. This is easy, because it's already been collected in
+% 2D pages above.
+trialrecords = reshape( TrialCollection.r, params.nTrials, [] );
+h = round(params.nTrials/2);
+
+samplesize = 28e3;
+performance = []; methodflag = 1;
+for i = 1:10
+    fprintf('Train / Predict %d',i);
+    % First need to come up with a random sample of at most 28k entries per
+    % trial ... the amount of time per trial would require about 8214 GB of RAM
+    % The better way to do this might be to randomize per trial and select from
+    % a particularly information rich portion of the trial.
+    tPerm = randperm(size(trialrecords,2));
+    tPerm = sort(tPerm(1:samplesize));                % RAISABLE FOR HIGHER RAM
+    trialrecords=trialrecords(:,tPerm);
+
+    % Build disc model on half the data
+    if methodflag==1
+        try % Quadratic, but if not enough data, then flip to linear
+            Disc = fitcdiscr(trialrecords(1:h,:),TrialCollection.choice(1:h),'DiscrimType','Quadratic');
+            fprintf('-- Quadratic selected\n');
+        catch
+            Disc = fitcdiscr(trialrecords(1:h,:),TrialCollection.choice(1:h));
+            fprintf('-- Linear selected\n');
+            methodflag=2;
+        end
+    else
+        Disc = fitcdiscr(trialrecords(1:h,:),TrialCollection.choice(1:h));
+        fprintf('-- Linear selected\n');
+    end
+
+    % Other half, validate the method
+    predictions = predict(Disc,trialrecords(h+1:end,:));
+
+    % How many predictions match actuality?
+    performance = [performance arrayfun( @(x) ...
+        isequal(predictions{x},TrialCollection.choice{h+x}) , ...
+        1:numel(predictions) )];
+end
+
+performance
+performance = sum(performance)/numel(performance);
+fprintf('Predictability = %2.2f%%\n', performance*100);
 
 %% Final Save
-% Print out key parameters!
+
+% Print out key parameters! makes it easier to see in PE diaries
 fprintf('\n--------\n');
 fprintf('Recurrent EE: %3.2f, Asymmetric EE: %3.2f, \nEI: %3.2f, \nIE: %5.2f, II %3.2f', ...
     params.WEErecurrent_factor,params.WEEasym_factor, params.WEI_factor, ...
     params.WIE_factor, 0);
 fprintf('\n--------\n');
-    
- clearvars -except r trials Iapp TrialCollection params;
-save('Record');
+
+% Conditional save
+if ~PE_MODE__
+    saveRequest = input(sprintf('Save? [y/N]\n'),'s');
+end
+if PE_MODE__ || lower(saveRequest) == 'y'
+    clearvars -except r trials Iapp TrialCollection params;
+    save('Record');
+end

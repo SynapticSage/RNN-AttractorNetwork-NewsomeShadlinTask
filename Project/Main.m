@@ -40,7 +40,7 @@ figures.save            = true;
 figures.showStimuli     = true;
 figures.showInputComp   = true;
 figures.midprocess      = false;
-figures.preserveMemory  = false;
+figures.preserveMemory  = true;
 
 %% General Paramters
 % The lines below this comment provide an optional entry point for my
@@ -54,7 +54,7 @@ if ~(exist('params','var') || PE_MODE__)
            'sigma', 0.1,    ...
        ... ---TASK PARAMETERS---
            ... General Trial Controls
-           'nTrials',       3, ...
+           'nTrials',       794, ...
            'trialDuration', 2,  ... 3, ...
            ... General Stimulus
            'iFrac',         0.15, ...   Randomly select a third of the population for each stimulus to receive
@@ -391,7 +391,8 @@ if figures.on
     end
     
     f=figure(300); clf;
-    plotPermPopMeasures([],PermCondStruct, 1,2,3);
+    plotPermPopMeasures([],PermCondStruct, 1,2,3 , ...
+        fullfile(savedir,'3axisVideo.mp4'));
     saveThis(f,savedir,sprintf('Axis-%d-%d',P(p,1), P(p,2)),'png');
     if figures.preserveMemory
         close(f);

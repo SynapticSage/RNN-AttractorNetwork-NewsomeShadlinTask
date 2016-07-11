@@ -1,6 +1,6 @@
 % Main for the script that implements an attractor based neural firing
 % model on a stimulus regime that's supposed to mimic the Newsome task.
-for SET_ = 1:10
+% for SET_ = 1:10
 %% Pre-processing and Basic Definitions
 close all;
 
@@ -26,8 +26,6 @@ else
 end
 
 % Shortcut functions
-normalize   = @(x) x ./ mean(x);
-zscore      = @(x) (x-mean(x))./std(x);
 dsamp       = @(x) downsample(x,10);
 
 %% General Flags
@@ -40,7 +38,7 @@ figures.save            = true;
 figures.showStimuli     = true;
 figures.showInputComp   = true;
 figures.midprocess      = false;
-figures.preserveMemory  = true;
+figures.preserveMemory  = false;
 
 %% General Paramters
 % The lines below this comment provide an optional entry point for my
@@ -54,10 +52,10 @@ if ~(exist('params','var') || PE_MODE__)
            'sigma', 0.1,    ...
        ... ---TASK PARAMETERS---
            ... General Trial Controls
-           'nTrials',       733 + SET_, ...
+           'nTrials',       100, ...
            'trialDuration', 2,  ... 3, ...
            ... General Stimulus
-           'iFrac',         0.15, ...   Randomly select a third of the population for each stimulus to receive
+           'iFrac',         0.25, ...   Randomly select a third of the population for each stimulus to receive
            ... How Opposing Stim Handled (how to compute cells stim fed to)
            'oppSimple',     false, ...
            ... Context Stimulus
@@ -74,15 +72,15 @@ if ~(exist('params','var') || PE_MODE__)
            'nInh',      5, ...
            'nExc',      100, ...
            ... Neural Properties
-           'rMax0E',    100, ...
-           'rMax0I',    200, ...
+           'rMax0E',    120, ...
+           'rMax0I',    400, ...
            'p0E',       0.40, ...
            'p0I',       0.1, ...
            ...Time Constants
            'tausE',     0.025, ...
            'tausI',     0.005, ...
            'tauDbar',   0.2, ...
-           'tauDvar',   0.01,     ...
+           'tauDvar',   0.01, ...   
            'tauM',      0.010, ...
            ... Input Properties
            'Imax',      6, ... scales input such that max equals this
@@ -378,13 +376,17 @@ fprintf('\n--------\n');
 [SingleCondStruct, PermCondStruct]= populationAnalyses(TrialCollection,dt);
 
 if figures.on
+    
     % Now, we need to plot for each combo condition the population activity
     % average on the axes derived, present in the PermCondStruct.
     P = perms([1 2 3]);
     for p = 1:size(P,1)
         f=figure( 200  + p ); clf;
         plotPermPopMeasures([],PermCondStruct, P(p,1), P(p,2));
-        saveThis(f,savedir,sprintf('Axis-%d-%d',P(p,1), P(p,2)),'png');
+        if figures.save
+            title(sprintf('Perm, Axis-%d-%d',P(p,1), P(p,2)));
+            saveThis(f,savedir,sprintf('Perm, Axis-%d-%d',P(p,1), P(p,2)),'png');
+        end
         if figures.preserveMemory
             close(f);
         end
@@ -393,7 +395,35 @@ if figures.on
     f=figure(300); clf;
     plotPermPopMeasures([],PermCondStruct, 1,2,3 , ...
         fullfile(savedir,'3axisVideo.mp4'));
-    saveThis(f,savedir,sprintf('Axis-%d-%d',P(p,1), P(p,2)),'png');
+    if figures.preserveMemory
+        close(f);
+    end
+    
+    % Now, we need to plot for each combo condition the population activity
+    % average on the axes derived, present in the PermCondStruct.
+    P = perms([1 2 3]);
+    for p = 1:size(P,1)
+        f=figure( 400  + p ); clf;
+        plotPermPopMeasures([],SingleCondStruct, P(p,1), P(p,2));
+        if figures.save
+            title(sprintf('SingleCond, Axis-%d-%d',P(p,1), P(p,2)));
+            saveThis(f,savedir,sprintf('SingleCond, Axis-%d-%d',P(p,1), P(p,2)),'png');
+        end
+        if figures.preserveMemory
+            close(f);
+        end
+    end
+    
+    f=figure(500); 
+    clf;
+    plotPermPopMeasures([],SingleCondStruct, 1,2,3 , ...
+        fullfile(savedir,sprintf('Ax%d--3axisVideo.mp4',1)));
+    clf;
+    plotPermPopMeasures([],SingleCondStruct, 2,3,1 , ...
+        fullfile(savedir,sprintf('Ax%d--3axisVideo.mp4',2)));
+    clf;
+    plotPermPopMeasures([],SingleCondStruct, 3,1,2 , ...
+        fullfile(savedir,sprintf('Ax%d--3axisVideo.mp4',3)));
     if figures.preserveMemory
         close(f);
     end
@@ -480,4 +510,4 @@ if PE_MODE__ || lower(saveRequest) == 'y'
         performance PermCondStruct SingleCondStruct;
     save('Record','-v7.3');
 end
-end
+% end

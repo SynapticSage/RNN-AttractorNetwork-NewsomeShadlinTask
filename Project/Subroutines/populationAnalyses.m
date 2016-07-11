@@ -115,6 +115,11 @@ end
 for c = 1:numel(Yspec)
     Yspec(c).proj = Yspec(c).data*orthY;
 end
+
+% Obtain projection onto the three axes
+for c = 1:numel(Xspec)
+    Xspec(c).proj = Xspec(c).data*orthX;
+end
      
 %% Package up all the statistical measures into struct
 %

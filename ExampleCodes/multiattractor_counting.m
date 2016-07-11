@@ -118,6 +118,8 @@ W(:,Ncells) = WEI;                                                          % Co
 W(Ncells,:) = WIE + sigmaIE*(rand(s2,1,Ncells)-0.5);
 W(Ncells,Ncells) = 0.0;                                                     % I-to-I strength
 
+figure; imagesc(W);
+
 %% Initialize mean and standard deviation trackers
 
 meanrate        = zeros(length(t),Ncells);

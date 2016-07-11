@@ -7,6 +7,7 @@ function plotPermPopMeasures(axs, PS, a, b, c, vidFilename)
 % 
 
 axisLabels = {'Context','Motion','Color'}; % normally, I don't like hard-coding in things to functions, but time is short
+normalize = false;
 
 if isempty(axs)
     axs = gca;
@@ -21,6 +22,12 @@ oax = PS.orthogConditionAxes;
 % Create matrix of available permutations of trial stimuli
 cMat = {spec.cValue}';
 cMat = cat(1,cMat{:});
+
+cond = {spec.condition}'
+cond = cat(1,cond{:})
+if ~isempty(cond) % then its a single condition struct, and we need to contrain the set of inputs to the first condition given a in the function input
+    cMat = cMat(cond==a,:)
+end
 
 %% Determine mode
 if nargin == 4
@@ -39,17 +46,27 @@ end
 %% 2D graph in Time
 
     function [] = TwoDimPlot(c1,c2)
-        [sMat,sortInd1] = sortrows(cMat,c2);
-        [sMat,sortInd2] = sortrows(sMat,c1);
+        
+        if iscolumn(cMat)
+            [sMat, sortInd1] = sort(cMat);
+            sortInd2 = 1:numel(sortInd1);
+        else
+            [sMat,sortInd1] = sortrows(cMat,c2);
+            [sMat,sortInd2] = sortrows(sMat,c1);
+        end
         axes(axs);
         
         hold on; legendLab=cell(1,size(sMat,1));
         p = gobjects(size(sMat,1),1);
+        colors=autumn(size(sMat,1));
         for i = 1:size(sMat,1)
             
             proj = spec(sortInd2(sortInd1(i))).proj;
+            if normalize
+                proj = normalOf(proj);
+            end
             
-            p(i)=plot( proj(:,c1), proj(:,c2) );
+            p(i)=plot( proj(:,c1), proj(:,c2), 'color', colors(i,:) );
             start=plot( proj(1,c1), proj(1,c2), 'color', p(i).Color, 'marker', '*');
             stop=plot( proj(end,c1), proj(end,c2), 'color', p(i).Color,  'marker', '*');
             xlabel(axisLabels{c1});
@@ -62,7 +79,11 @@ end
 					plotAndCorrectArrows(p(i),proj(:,1),proj(:,2));
             end
             
-            legendLab{i} = num2str(sMat(i,[c1 c2]));
+            if iscolumn(sMat)
+                legendLab{i} = num2str(sMat(i));
+            else
+                legendLab{i} = num2str(sMat(i,[c1 c2]));
+            end
             
         end
         
@@ -74,7 +95,11 @@ end
 
     function [] = ThreeDimPlot(c1,c2,c3)      
         
-        [sMat, sortInd]= sort(cMat,c1);
+        if iscolumn(cMat)
+            [sMat, sortInd]= sort(cMat,1);
+        else
+            [sMat, sortInd]= sortrows(cMat,c1);
+        end
         axes(axs); currf=gcf;
         currf.WindowStyle='normal';
         hold on;
@@ -83,6 +108,9 @@ end
         h = gobjects(1,size(sMat,1));
         for i = 1:size(sMat,1)
             proj = spec(sortInd(i)).proj;
+            if normalize
+                proj = normalOf(proj);
+            end
             h(i) = animatedline(proj(1,c1), proj(1,c2), proj(1,c3),...
                 'color',rand(1,3));
         end
@@ -101,10 +129,13 @@ end
         for t = 1:10:size(spec(1).data(:,1))
             for i = 1:size(sMat,1)
                 proj = spec(sortInd(i)).proj;
+                if normalize
+                    proj = normalOf(proj);
+                end
                 addpoints(h(i), proj(t,c1), proj(t,c2), proj(t,c3));
             end
             drawnow;
-            camorbit(-pi/120,0);
+            camorbit(-pi/20,0);
             title( sprintf('t = %d of %d',t,size(spec(1).data(:,1),1)) );
             f=getframe(currf);
             writeVideo(v,f);
@@ -140,6 +171,14 @@ end
             obj.EdgeColor = 'k';
             obj.EdgeAlpha = 0.2;
         end
-	end
+    end
+
+    function Y = normalOf(X)
+        removeOutliers=true;
+        Y = (X - repmat(mean(X,1),size(X,1),1)) ./ repmat(std(X,1),size(X,1),1);
+        if removeOutliers
+            Y(Y>10)=0;
+        end
+    end
     
 end
